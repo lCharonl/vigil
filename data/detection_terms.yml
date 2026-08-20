@@ -1,0 +1,11 @@
+# Lexical detection terms, keyed by rule id. Analyst-editable.
+
+terms:
+  # L-01: MFA / strong-authentication vocabulary
+  l-01: [mfa, 2fa, otp, token, passkey, authenticator, sso]
+  # L-02: document / file-sharing vocabulary
+  l-02: [invoice, esign, signature, contract, voicemail, shared, pdf]
+  # L-04: generic auth / finance / urgency vocabulary
+  l-04: [login, verify, secure, billing, refund, suspended, expired]
+  # R-04: authentication terms placed next to a brand
+  r-04: [login, signin, logon, auth, verify, secure, account, password, credentials, mfa, sso, otp]
