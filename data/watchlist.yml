@@ -1,0 +1,23 @@
+# Vigil watchlist.
+#
+# Each entry under `brands` is a monitored brand. `legitimate_domains` lists the
+# domains that brand actually controls, so exact matches against them can be
+# suppressed by the detection layer instead of raising a self-alert.
+brands:
+  - name: exemplebank
+    legitimate_domains:
+      - exemplebank.com
+      - exemplebank.co.uk
+      - accounts.exemplebank.com
+
+  - name: acme-cloud
+    legitimate_domains:
+      - acme-cloud.io
+      - login.acme-cloud.io
+      - acme-cloud.net
+
+  - name: northwind-pay
+    legitimate_domains:
+      - northwindpay.com
+      - pay.northwindpay.com
+      - api.northwindpay.com

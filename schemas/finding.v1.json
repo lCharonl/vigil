@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vigil.example/schemas/finding.v1.json",
+  "title": "Finding",
+  "description": "A suspected brand-impersonation match produced by Vigil's detection layer. This is the stable, language-independent contract for downstream consumers; it is committed as a static file rather than generated at runtime.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "detected_at",
+    "cert",
+    "matched_watch_target",
+    "score",
+    "reasons"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "detected_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp at which detection ran."
+    },
+    "cert": {
+      "$ref": "#/$defs/CertEvent"
+    },
+    "matched_watch_target": {
+      "type": "string",
+      "description": "The watchlist entry this finding matched against."
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Human-readable explanations backing the score."
+    }
+  },
+  "$defs": {
+    "CertEvent": {
+      "type": "object",
+      "description": "A single certificate observed on a Certificate Transparency log.",
+      "required": [
+        "serial_number",
+        "signature_algo",
+        "issuer_common_name",
+        "validity_not_before",
+        "validity_not_after",
+        "domains",
+        "source",
+        "is_precert"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "serial_number": {
+          "type": "string"
+        },
+        "signature_algo": {
+          "type": "string"
+        },
+        "issuer_country": {
+          "type": ["string", "null"]
+        },
+        "issuer_organisation": {
+          "type": ["string", "null"]
+        },
+        "issuer_common_name": {
+          "type": "string"
+        },
+        "validity_not_before": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "validity_not_after": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Raw SANs as reported by the CT log, wildcards included, unnormalised."
+        },
+        "source": {
+          "type": "string"
+        },
+        "cert_index": {
+          "type": ["integer", "null"]
+        },
+        "is_precert": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
