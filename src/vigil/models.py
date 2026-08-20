@@ -37,18 +37,18 @@ class CertEvent(BaseModel):
     def _validate_utc(cls, value: datetime) -> datetime:
         return _require_utc(value)
 
-
-class Finding(BaseModel):
-    """The result of running detection against a CertEvent: a suspected impersonation."""
-
-    schema_version: Literal["1"] = "1"
-    detected_at: datetime
-    cert: CertEvent
-    matched_watch_target: str
+class DomainVerdict(BaseModel):
+    domain: str
+    matched_watch_target: str | None = None
     score: float = Field(ge=0.0, le=1.0)
     reasons: list[str]
 
-    @field_validator("detected_at")
-    @classmethod
-    def _validate_utc(cls, value: datetime) -> datetime:
-        return _require_utc(value)
+
+
+class Finding(BaseModel):
+    schema_version: Literal["1"] = "1"
+    detected_at: datetime
+    cert: CertEvent
+    verdicts: list[DomainVerdict]
+    score: float = Field(ge=0.0, le=1.0)
+    skipped_domains: list[str] = [] 
