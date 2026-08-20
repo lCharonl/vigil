@@ -37,11 +37,16 @@ class CertEvent(BaseModel):
     def _validate_utc(cls, value: datetime) -> datetime:
         return _require_utc(value)
 
+class Reason(BaseModel):
+    family: str
+    rule: str
+    points: int
+
 class DomainVerdict(BaseModel):
     domain: str
     matched_watch_target: str | None = None
     score: float = Field(ge=0.0, le=1.0)
-    reasons: list[str]
+    reasons: list[Reason]
 
 
 
