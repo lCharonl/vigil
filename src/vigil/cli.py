@@ -8,6 +8,7 @@ import typer
 
 from vigil.ingest.base import Source
 from vigil.ingest.certstream import CERTSTREAM_URL, CertStreamSource
+from vigil.ingest.filters import strip_wildcards
 from vigil.ingest.fixtures import FixtureSource
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
@@ -43,6 +44,11 @@ def watch(
         "--fixtures-path",
         help="Fixture JSONL file to replay when --source fixtures",
     ),
+    skip_wildcards: bool = typer.Option(
+        True,
+        "--skip-wildcards/--no-skip-wildcards",
+        help="Drop wildcard SANs from ingested certificates",
+    ),
 ) -> None:
     """Stream certificates from SOURCE and display them.
 
@@ -72,6 +78,11 @@ def watch(
     async def run() -> None:
         count = 0
         async for cert in src.stream():
+            if skip_wildcards:
+                filtered = strip_wildcards(cert)
+                if filtered is None:
+                    continue
+                cert = filtered
             count += 1
             typer.echo(
                 f"[{count}] source={cert.source} serial={cert.serial_number} domains={cert.domains}"
