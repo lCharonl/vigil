@@ -6,6 +6,9 @@ from pathlib import Path
 
 import typer
 
+from vigil.detect.morphological import numeric_exceptions
+from vigil.detect.pipeline import detect_event
+from vigil.detect.watchlist import load_legitimate_domains
 from vigil.ingest.base import Source
 from vigil.ingest.certstream import CERTSTREAM_URL, CertStreamSource
 from vigil.ingest.filters import strip_wildcards
@@ -49,6 +52,11 @@ def watch(
         "--skip-wildcards/--no-skip-wildcards",
         help="Drop wildcard SANs from ingested certificates",
     ),
+    detection: bool = typer.Option(
+        False,
+        "--detection/--no-detection",
+        help="Run detection modules and print only detections (morphological only for now)",
+    ),
 ) -> None:
     """Stream certificates from SOURCE and display them.
 
@@ -75,6 +83,10 @@ def watch(
     else:
         raise typer.BadParameter(f"unknown source: {source!r} (expected certstream|fixtures)")
 
+    digit_exceptions: frozenset[str] = frozenset()
+    if detection and watchlist.exists():
+        digit_exceptions = numeric_exceptions(load_legitimate_domains(watchlist))
+
     async def run() -> None:
         count = 0
         async for cert in src.stream():
@@ -83,11 +95,22 @@ def watch(
                 if filtered is None:
                     continue
                 cert = filtered
-            count += 1
-            typer.echo(
-                f"[{count}] source={cert.source} serial={cert.serial_number} domains={cert.domains}"
-            )
-        typer.echo(f"done: {count} certificate(s) processed", err=True)
+            if detection:
+                for domain, reasons in detect_event(cert, digit_exceptions):
+                    count += 1
+                    rules = ",".join(r.rule for r in reasons)
+                    typer.echo(
+                        f"[{count}] DETECT source={cert.source} "
+                        f"serial={cert.serial_number} domain={domain} rules={rules}"
+                    )
+            else:
+                count += 1
+                typer.echo(
+                    f"[{count}] source={cert.source} serial={cert.serial_number} "
+                    f"domains={cert.domains}"
+                )
+        unit = "detection(s)" if detection else "certificate(s) processed"
+        typer.echo(f"done: {count} {unit}", err=True)
 
     try:
         asyncio.run(run())
