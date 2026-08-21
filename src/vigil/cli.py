@@ -2,28 +2,197 @@
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
+import questionary
 import typer
+from questionary import Choice
+from rich.console import Console
+from rich.panel import Panel
 
+from vigil.detect import config
 from vigil.detect.morphological import numeric_exceptions
-from vigil.detect.pipeline import detect_event
+from vigil.detect.pipeline import IMPLEMENTED_FAMILIES, detect_event
+from vigil.detect.rules import RULE_FAMILY, Rule
 from vigil.detect.watchlist import load_legitimate_domains
 from vigil.ingest.base import Source
 from vigil.ingest.certstream import CERTSTREAM_URL, CertStreamSource
 from vigil.ingest.filters import strip_wildcards
 from vigil.ingest.fixtures import FixtureSource
 
-app = typer.Typer(add_completion=False, no_args_is_help=True)
+app = typer.Typer(add_completion=False)
 
 DEFAULT_FIXTURES_PATH = Path("tests/fixtures/certs.jsonl")
+DEFAULT_WATCHLIST_PATH = Path("data/watchlist.yml")
 
 logger = logging.getLogger("vigil")
+console = Console()
+
+RULE_LABELS: dict[Rule, str] = {
+    Rule.M_01: f"{config.MIN_HYPHENS}+ hyphens in hostname",
+    Rule.M_02: f"registrable domain > {config.MAX_REGISTRABLE_LENGTH} chars",
+    Rule.M_03: f"{config.MIN_LABELS}+ labels in hostname",
+    Rule.M_04: f"{config.MIN_CONSECUTIVE_DIGITS}+ consecutive digits",
+}
 
 
-@app.callback()
-def main() -> None:
+@dataclass
+class MenuConfig:
+    """Choices collected by the interactive menu."""
+
+    src: Source
+    source_label: str
+    detection: bool
+    rules: frozenset[Rule] | None = None
+
+
+def _load_digit_exceptions(watchlist: Path) -> frozenset[str]:
+    """Digit-run exceptions for M-04, empty if the watchlist is missing."""
+    if not watchlist.exists():
+        return frozenset()
+    return numeric_exceptions(load_legitimate_domains(watchlist))
+
+
+def _run_stream(
+    src: Source,
+    skip_wildcards: bool,
+    detection: bool,
+    digit_exceptions: frozenset[str] = frozenset(),
+    rules: frozenset[Rule] | None = None,
+) -> None:
+    """Drive the ingestion loop, printing certs or detections."""
+
+    async def run() -> None:
+        count = 0
+        async for cert in src.stream():
+            if skip_wildcards:
+                filtered = strip_wildcards(cert)
+                if filtered is None:
+                    continue
+                cert = filtered
+            if detection:
+                for domain, reasons in detect_event(cert, digit_exceptions, rules):
+                    count += 1
+                    matched = ",".join(r.rule for r in reasons)
+                    typer.echo(
+                        f"[{count}] DETECT source={cert.source} "
+                        f"serial={cert.serial_number} domain={domain} rules={matched}"
+                    )
+            else:
+                count += 1
+                typer.echo(
+                    f"[{count}] source={cert.source} serial={cert.serial_number} "
+                    f"domains={cert.domains}"
+                )
+        unit = "detection(s)" if detection else "certificate(s) processed"
+        typer.echo(f"done: {count} {unit}", err=True)
+
+    try:
+        asyncio.run(run())
+    except KeyboardInterrupt:
+        pass
+
+
+def _ask(prompt: questionary.Question):
+    """Run a questionary prompt, exiting cleanly on ctrl-c."""
+    answer = prompt.ask()
+    if answer is None:
+        console.print("[yellow]cancelled[/]")
+        raise typer.Exit(code=0)
+    return answer
+
+
+def _prompt_menu() -> MenuConfig:
+    """Collect source, detection and enabled rules interactively."""
+    console.print(
+        Panel.fit(
+            "[bold cyan]Vigil[/] — phishing-infrastructure detection\n"
+            "[dim]arrows: move · space: toggle · enter: confirm · ctrl-c: quit[/]",
+            border_style="cyan",
+        )
+    )
+
+    source = _ask(
+        questionary.select(
+            "Source:",
+            choices=[
+                Choice("certstream (live)", "certstream"),
+                Choice("fixtures (replay)", "fixtures"),
+            ],
+        )
+    )
+    src: Source
+    if source == "certstream":
+        url = _ask(questionary.text("CertStream URL:", default=CERTSTREAM_URL))
+        src = CertStreamSource(url=url)
+        source_label = f"certstream ({url})"
+    else:
+        fixtures_path = _ask(
+            questionary.path("Fixtures path:", default=str(DEFAULT_FIXTURES_PATH))
+        )
+        src = FixtureSource(Path(fixtures_path))
+        source_label = f"fixtures ({fixtures_path})"
+
+    detection = _ask(questionary.confirm("Enable detection?", default=False))
+    rules: frozenset[Rule] | None = None
+    if detection:
+        families = _ask(
+            questionary.checkbox(
+                "Detection families:",
+                choices=[Choice(f.value, f, checked=True) for f in IMPLEMENTED_FAMILIES],
+            )
+        )
+        selected: set[Rule] = set()
+        for family in families:
+            family_rules = [r for r in Rule if RULE_FAMILY[r] is family]
+            picked = _ask(
+                questionary.checkbox(
+                    f"{family.value} rules:",
+                    choices=[
+                        Choice(f"{r.value} — {RULE_LABELS.get(r, r.value)}", r, checked=True)
+                        for r in family_rules
+                    ],
+                )
+            )
+            selected.update(picked)
+        rules = frozenset(selected)
+        if not rules:
+            console.print("[yellow]no rules selected: detection will match nothing[/]")
+
+    return MenuConfig(src=src, source_label=source_label, detection=detection, rules=rules)
+
+
+def _print_recap(menu: MenuConfig) -> None:
+    """Show the chosen configuration in a bordered panel."""
+    lines = [f"source     {menu.source_label}"]
+    if menu.detection:
+        enabled = sorted(r.value for r in (menu.rules or frozenset()))
+        lines.append("detection  on")
+        lines.append(f"rules      {', '.join(enabled) if enabled else 'none'}")
+    else:
+        lines.append("detection  off")
+    console.print(Panel("\n".join(lines), title="run configuration", border_style="green"))
+
+
+@app.callback(invoke_without_command=True)
+def main(ctx: typer.Context) -> None:
     """Vigil: phishing-infrastructure detection from Certificate Transparency logs."""
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
+    if ctx.invoked_subcommand is not None:
+        return
+    menu = _prompt_menu()
+    _print_recap(menu)
+    digit_exceptions: frozenset[str] = frozenset()
+    if menu.detection:
+        if not DEFAULT_WATCHLIST_PATH.exists():
+            logger.warning(
+                "watchlist file not found: %s (continuing without it)", DEFAULT_WATCHLIST_PATH
+            )
+        digit_exceptions = _load_digit_exceptions(DEFAULT_WATCHLIST_PATH)
+    _run_stream(menu.src, True, menu.detection, digit_exceptions, menu.rules)
 
 
 @app.command()
@@ -35,7 +204,7 @@ def watch(
         help="Websocket URL for --source certstream",
     ),
     watchlist: Path = typer.Option(
-        Path("data/watchlist.yml"), "--watchlist", help="Path to the watchlist YAML file"
+        DEFAULT_WATCHLIST_PATH, "--watchlist", help="Path to the watchlist YAML file"
     ),
     output: Path | None = typer.Option(
         None,
@@ -58,15 +227,7 @@ def watch(
         help="Run detection modules and print only detections (morphological only for now)",
     ),
 ) -> None:
-    """Stream certificates from SOURCE and display them.
-
-    Detection is not implemented yet (see vigil.detect): this command exercises the
-    ingestion pipeline end to end and prints every CertEvent it receives.
-    """
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
-    )
-
+    """Stream certificates from SOURCE and display them."""
     if not watchlist.exists():
         logger.warning("watchlist file not found: %s (continuing without it)", watchlist)
 
@@ -84,38 +245,10 @@ def watch(
         raise typer.BadParameter(f"unknown source: {source!r} (expected certstream|fixtures)")
 
     digit_exceptions: frozenset[str] = frozenset()
-    if detection and watchlist.exists():
-        digit_exceptions = numeric_exceptions(load_legitimate_domains(watchlist))
+    if detection:
+        digit_exceptions = _load_digit_exceptions(watchlist)
 
-    async def run() -> None:
-        count = 0
-        async for cert in src.stream():
-            if skip_wildcards:
-                filtered = strip_wildcards(cert)
-                if filtered is None:
-                    continue
-                cert = filtered
-            if detection:
-                for domain, reasons in detect_event(cert, digit_exceptions):
-                    count += 1
-                    rules = ",".join(r.rule for r in reasons)
-                    typer.echo(
-                        f"[{count}] DETECT source={cert.source} "
-                        f"serial={cert.serial_number} domain={domain} rules={rules}"
-                    )
-            else:
-                count += 1
-                typer.echo(
-                    f"[{count}] source={cert.source} serial={cert.serial_number} "
-                    f"domains={cert.domains}"
-                )
-        unit = "detection(s)" if detection else "certificate(s) processed"
-        typer.echo(f"done: {count} {unit}", err=True)
-
-    try:
-        asyncio.run(run())
-    except KeyboardInterrupt:
-        pass
+    _run_stream(src, skip_wildcards, detection, digit_exceptions)
 
 
 if __name__ == "__main__":
