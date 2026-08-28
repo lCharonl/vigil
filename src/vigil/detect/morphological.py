@@ -51,16 +51,20 @@ MORPHOLOGICAL_RULES: tuple[Rule, ...] = (Rule.M_01, Rule.M_02, Rule.M_03, Rule.M
 
 
 def evaluate_morphological(
-    name: DomainName, digit_exceptions: frozenset[str] = frozenset()
+    name: DomainName,
+    digit_exceptions: frozenset[str] = frozenset(),
+    rules: frozenset[Rule] | None = None,
 ) -> Reason | None:
-    """Return the first matching morphological rule as a Reason, or None."""
-    matched = {
-        Rule.M_01: has_min_hyphens(name),
-        Rule.M_02: registrable_too_long(name),
-        Rule.M_03: has_min_labels(name),
-        Rule.M_04: has_digit_run(name, exceptions=digit_exceptions),
+    """Return the first matching enabled morphological rule as a Reason, or None."""
+    predicates = {
+        Rule.M_01: lambda: has_min_hyphens(name),
+        Rule.M_02: lambda: registrable_too_long(name),
+        Rule.M_03: lambda: has_min_labels(name),
+        Rule.M_04: lambda: has_digit_run(name, exceptions=digit_exceptions),
     }
     for rule in MORPHOLOGICAL_RULES:
-        if matched[rule]:
+        if rules is not None and rule not in rules:
+            continue
+        if predicates[rule]():
             return Reason(family=Family.MORPHOLOGICAL, rule=rule, points=0)
     return None
