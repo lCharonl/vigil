@@ -56,12 +56,17 @@ def test_detection_view_prints_only_detections():
             assert "DETECT" in line
 
 
-def _menu_config(fixture: Path, detection: bool, rules: frozenset[Rule] | None) -> MenuConfig:
+def _menu_config(
+    fixture: Path,
+    detection: bool,
+    rules: frozenset[Rule] | None,
+    metrics: bool = False,) -> MenuConfig:
     return MenuConfig(
         src=FixtureSource(fixture),
         source_label=f"fixtures ({fixture})",
         detection=detection,
         rules=rules,
+        metrics=metrics
     )
 
 
@@ -72,6 +77,14 @@ def test_menu_without_detection_prints_certs(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert "domains=[" in result.stdout
     assert "DETECT" not in result.stdout
+
+
+def _all_output(result) -> str:
+    """stdout plus stderr, whichever the runner captured separately."""
+    try:
+        return result.stdout + result.stderr
+    except (ValueError, AttributeError):
+        return result.stdout
 
 
 def test_menu_with_detection_all_rules(monkeypatch, tmp_path):
@@ -108,3 +121,42 @@ def test_menu_recap_shows_configuration(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert "run configuration" in result.stdout
     assert "M-01" in result.stdout
+
+
+def test_watch_metrics_flag_emits_block():
+    result = runner.invoke(
+        app, ["watch", "--source", "fixtures", "--detection", "--metrics"]
+    )
+    assert result.exit_code == 0
+    output = _all_output(result)
+    assert "detection metrics" in output
+    assert "analysis/domain" in output
+    assert "detection metrics" not in result.stdout  # metrics stay off stdout
+
+
+def test_watch_metrics_suppresses_detections():
+    result = runner.invoke(
+        app, ["watch", "--source", "fixtures", "--detection", "--metrics"]
+    )
+    assert result.exit_code == 0
+    assert "DETECT" not in result.stdout
+    assert "detection metrics" in _all_output(result)
+
+
+def test_watch_without_metrics_flag_emits_no_block():
+    result = runner.invoke(app, ["watch", "--source", "fixtures", "--detection"])
+    assert result.exit_code == 0
+    assert "detection metrics" not in _all_output(result)
+
+
+def test_menu_metrics_recap(monkeypatch, tmp_path):
+    fixture = _detection_fixture(tmp_path)
+    monkeypatch.setattr(
+        "vigil.cli._prompt_menu",
+        lambda: _menu_config(fixture, True, frozenset({Rule.M_01}), metrics=True),
+    )
+    result = runner.invoke(app, [])
+    assert result.exit_code == 0
+    assert "metrics    on" in result.stdout
+    assert "detection metrics" in _all_output(result)
+    assert "DETECT" not in result.stdout
