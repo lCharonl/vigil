@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Prints detection counts per rule over a 5-minute window.
+"""Prints detection throughput, timing and per-rule counts over a 5-minute window.
 
 Consumes vigil's CertStreamSource (same reconnect/idle-timeout behaviour as
 `vigil watch`), runs the detection pipeline on every non-wildcard domain, and
-reports, at the end of the window, how many detections each active rule produced.
+prints a DetectionMetrics snapshot at the end of the window.
 
 Usage:
     python3 scripts/detection_kpis.py [--certstream-url URL] [--duration SECONDS]
@@ -12,8 +12,8 @@ Usage:
 import argparse
 import asyncio
 import time
-from collections import Counter
 
+from vigil.detect.metrics import DetectionMetrics
 from vigil.detect.morphological import numeric_exceptions
 from vigil.detect.pipeline import detect_event
 from vigil.detect.watchlist import load_legitimate_domains
@@ -23,42 +23,22 @@ from vigil.ingest.filters import strip_wildcards
 DEFAULT_DURATION = 300
 
 
-def format_snapshot(
-    elapsed: float, certs: int, domains: int, by_rule: Counter[str]
-) -> str:
-    detections = sum(by_rule.values())
-    lines = [f"\n=== detections over {elapsed:.0f}s ==="]
-    lines.append(f"certs:       {certs} processed")
-    lines.append(f"domains:     {domains} evaluated")
-    lines.append(f"detections:  {detections}  ({60 * detections / elapsed:.1f}/min)")
-    lines.append("by rule:")
-    for rule, count in by_rule.most_common():
-        pct = 100 * count / detections if detections else 0
-        lines.append(f"  {rule:<8} {count:>7}  ({pct:5.1f}%)")
-    return "\n".join(lines)
-
-
 async def run(url: str, duration: float, watchlist: str) -> None:
     src = CertStreamSource(url=url)
     digit_exceptions = numeric_exceptions(load_legitimate_domains(watchlist))
-    certs = 0
-    domains = 0
-    by_rule: Counter[str] = Counter()
+    stats = DetectionMetrics()
 
     start = time.monotonic()
     async for event in src.stream():
         event = strip_wildcards(event)
         if event is None:
             continue
-        certs += 1
-        domains += len(event.domains)
-        for _domain, reasons in detect_event(event, digit_exceptions):
-            for reason in reasons:
-                by_rule[reason.rule] += 1
+        t0 = time.perf_counter()
+        results = detect_event(event, digit_exceptions)
+        stats.record(len(event.domains), time.perf_counter() - t0, results)
 
-        elapsed = time.monotonic() - start
-        if elapsed >= duration:
-            print(format_snapshot(elapsed, certs, domains, by_rule), flush=True)
+        if time.monotonic() - start >= duration:
+            print(stats.snapshot(), flush=True)
             break
 
 

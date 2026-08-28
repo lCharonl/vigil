@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -9,9 +10,11 @@ import questionary
 import typer
 from questionary import Choice
 from rich.console import Console
+from rich.live import Live
 from rich.panel import Panel
 
 from vigil.detect import config
+from vigil.detect.metrics import DetectionMetrics
 from vigil.detect.morphological import numeric_exceptions
 from vigil.detect.pipeline import IMPLEMENTED_FAMILIES, detect_event
 from vigil.detect.rules import RULE_FAMILY, Rule
@@ -45,6 +48,7 @@ class MenuConfig:
     source_label: str
     detection: bool
     rules: frozenset[Rule] | None = None
+    metrics: bool = False
 
 
 def _load_digit_exceptions(watchlist: Path) -> frozenset[str]:
@@ -60,31 +64,71 @@ def _run_stream(
     detection: bool,
     digit_exceptions: frozenset[str] = frozenset(),
     rules: frozenset[Rule] | None = None,
+    metrics: bool = False,
+    metrics_interval: float = 10.0,
 ) -> None:
     """Drive the ingestion loop, printing certs or detections."""
 
     async def run() -> None:
         count = 0
-        async for cert in src.stream():
-            if skip_wildcards:
-                filtered = strip_wildcards(cert)
-                if filtered is None:
-                    continue
-                cert = filtered
-            if detection:
-                for domain, reasons in detect_event(cert, digit_exceptions, rules):
-                    count += 1
-                    matched = ",".join(r.rule for r in reasons)
-                    typer.echo(
-                        f"[{count}] DETECT source={cert.source} "
-                        f"serial={cert.serial_number} domain={domain} rules={matched}"
-                    )
-            else:
-                count += 1
-                typer.echo(
-                    f"[{count}] source={cert.source} serial={cert.serial_number} "
-                    f"domains={cert.domains}"
+        stats = DetectionMetrics() if (detection and metrics) else None
+        err_console = Console(stderr=True)
+        # one in-place panel on a real terminal, plain reprints otherwise
+        live = (
+            Live(console=err_console, auto_refresh=False)
+            if stats is not None and err_console.is_terminal
+            else None
+        )
+
+        def report() -> None:
+            block = stats.snapshot()
+            if live is not None:
+                live.update(
+                    Panel(block, title="detection metrics", border_style="cyan"),
+                    refresh=True,
                 )
+            else:
+                typer.echo(block, err=True)
+
+        next_report = time.monotonic() + metrics_interval
+        try:
+            if live is not None:
+                live.start()
+            async for cert in src.stream():
+                if skip_wildcards:
+                    filtered = strip_wildcards(cert)
+                    if filtered is None:
+                        continue
+                    cert = filtered
+                if detection:
+                    t0 = time.perf_counter()
+                    results = detect_event(cert, digit_exceptions, rules)
+                    if stats is not None:
+                        # metrics-only mode: count detections, skip per-line output
+                        stats.record(len(cert.domains), time.perf_counter() - t0, results)
+                        count += len(results)
+                    else:
+                        for domain, reasons in results:
+                            count += 1
+                            matched = ",".join(r.rule for r in reasons)
+                            typer.echo(
+                                f"[{count}] DETECT source={cert.source} "
+                                f"serial={cert.serial_number} domain={domain} rules={matched}"
+                            )
+                else:
+                    count += 1
+                    typer.echo(
+                        f"[{count}] source={cert.source} serial={cert.serial_number} "
+                        f"domains={cert.domains}"
+                    )
+                if stats is not None and time.monotonic() >= next_report:
+                    report()
+                    next_report += metrics_interval
+            if stats is not None:
+                report()
+        finally:
+            if live is not None:
+                live.stop()
         unit = "detection(s)" if detection else "certificate(s) processed"
         typer.echo(f"done: {count} {unit}", err=True)
 
@@ -160,7 +204,21 @@ def _prompt_menu() -> MenuConfig:
         if not rules:
             console.print("[yellow]no rules selected: detection will match nothing[/]")
 
-    return MenuConfig(src=src, source_label=source_label, detection=detection, rules=rules)
+    metrics = False
+    if detection:
+        metrics = _ask(
+            questionary.confirm(
+                "Metrics only (hide individual detections)?", default=True
+            )
+        )
+
+    return MenuConfig(
+        src=src,
+        source_label=source_label,
+        detection=detection,
+        rules=rules,
+        metrics=metrics,
+    )
 
 
 def _print_recap(menu: MenuConfig) -> None:
@@ -170,6 +228,7 @@ def _print_recap(menu: MenuConfig) -> None:
         enabled = sorted(r.value for r in (menu.rules or frozenset()))
         lines.append("detection  on")
         lines.append(f"rules      {', '.join(enabled) if enabled else 'none'}")
+        lines.append(f"metrics    {'on' if menu.metrics else 'off'}")
     else:
         lines.append("detection  off")
     console.print(Panel("\n".join(lines), title="run configuration", border_style="green"))
@@ -192,7 +251,9 @@ def main(ctx: typer.Context) -> None:
                 "watchlist file not found: %s (continuing without it)", DEFAULT_WATCHLIST_PATH
             )
         digit_exceptions = _load_digit_exceptions(DEFAULT_WATCHLIST_PATH)
-    _run_stream(menu.src, True, menu.detection, digit_exceptions, menu.rules)
+    _run_stream(
+        menu.src, True, menu.detection, digit_exceptions, menu.rules, menu.metrics
+    )
 
 
 @app.command()
@@ -226,10 +287,21 @@ def watch(
         "--detection/--no-detection",
         help="Run detection modules and print only detections (morphological only for now)",
     ),
+    metrics: bool = typer.Option(
+        False,
+        "--metrics/--no-metrics",
+        help="Print live throughput/timing metrics to stderr; hides individual detections",
+    ),
+    metrics_interval: float = typer.Option(
+        10.0, "--metrics-interval", help="Seconds between metrics snapshots"
+    ),
 ) -> None:
     """Stream certificates from SOURCE and display them."""
     if not watchlist.exists():
         logger.warning("watchlist file not found: %s (continuing without it)", watchlist)
+
+    if metrics and not detection:
+        logger.warning("--metrics has no effect without --detection")
 
     if output is not None:
         logger.info(
@@ -248,7 +320,14 @@ def watch(
     if detection:
         digit_exceptions = _load_digit_exceptions(watchlist)
 
-    _run_stream(src, skip_wildcards, detection, digit_exceptions)
+    _run_stream(
+        src,
+        skip_wildcards,
+        detection,
+        digit_exceptions,
+        metrics=metrics,
+        metrics_interval=metrics_interval,
+    )
 
 
 if __name__ == "__main__":
