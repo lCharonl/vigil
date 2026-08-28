@@ -14,6 +14,7 @@ import asyncio
 import time
 from collections import Counter
 
+from vigil.detect.metrics import DetectionMetrics
 from vigil.detect.morphological import numeric_exceptions
 from vigil.detect.pipeline import detect_event
 from vigil.detect.watchlist import load_legitimate_domains
@@ -41,24 +42,19 @@ def format_snapshot(
 async def run(url: str, duration: float, watchlist: str) -> None:
     src = CertStreamSource(url=url)
     digit_exceptions = numeric_exceptions(load_legitimate_domains(watchlist))
-    certs = 0
-    domains = 0
-    by_rule: Counter[str] = Counter()
+    stats = DetectionMetrics()
 
     start = time.monotonic()
     async for event in src.stream():
         event = strip_wildcards(event)
         if event is None:
             continue
-        certs += 1
-        domains += len(event.domains)
-        for _domain, reasons in detect_event(event, digit_exceptions):
-            for reason in reasons:
-                by_rule[reason.rule] += 1
+        t0 = time.perf_counter()
+        results = detect_event(event, digit_exceptions)
+        stats.record(len(event.domains), time.perf_counter() - t0, results)
 
-        elapsed = time.monotonic() - start
-        if elapsed >= duration:
-            print(format_snapshot(elapsed, certs, domains, by_rule), flush=True)
+        if time.monotonic() - start >= duration:
+            print(stats.snapshot(), flush=True)
             break
 
 
