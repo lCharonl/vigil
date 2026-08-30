@@ -1,7 +1,7 @@
 """Tests for DetectionMetrics accumulation and snapshot rendering."""
 
-from vigil.detect.metrics import DetectionMetrics, _fmt_duration
 from vigil.models import Reason
+from vigil.reporting.metrics import DetectionMetrics, _fmt_duration
 
 
 def _reason(rule: str) -> Reason:

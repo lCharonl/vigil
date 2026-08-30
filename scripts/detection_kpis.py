@@ -13,12 +13,12 @@ import argparse
 import asyncio
 import time
 
-from vigil.detect.metrics import DetectionMetrics
-from vigil.detect.morphological import numeric_exceptions
+from vigil.detect.data.watchlist import load_legitimate_domains
+from vigil.detect.families.morphological import numeric_exceptions
 from vigil.detect.pipeline import detect_event
-from vigil.detect.watchlist import load_legitimate_domains
 from vigil.ingest.certstream import CERTSTREAM_URL, CertStreamSource
 from vigil.ingest.filters import strip_wildcards
+from vigil.reporting.metrics import DetectionMetrics
 
 DEFAULT_DURATION = 300
 

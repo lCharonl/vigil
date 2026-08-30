@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 
 from vigil.detect.pipeline import detect_event
-from vigil.detect.rules import Rule
+from vigil.detect.registry import Rule
 from vigil.models import CertEvent
 
 

@@ -1,6 +1,6 @@
 """Tests for the morphological family and shared name decomposition."""
 
-from vigil.detect.morphological import (
+from vigil.detect.families.morphological import (
     evaluate_morphological,
     has_digit_run,
     has_min_hyphens,
@@ -8,8 +8,8 @@ from vigil.detect.morphological import (
     numeric_exceptions,
     registrable_too_long,
 )
-from vigil.detect.names import parse_domain
-from vigil.detect.rules import Family, Rule
+from vigil.detect.registry import Family, Rule
+from vigil.detect.techniques.names import parse_domain
 
 
 def test_parse_domain_multi_label_suffix():
