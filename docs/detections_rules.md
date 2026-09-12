@@ -61,6 +61,9 @@ implementation order:
 Encoding and morphological rules are pure `str → bool` functions. They are
 testable with no fixtures, no network and no configuration — start there.
 
+Each family maps to one module in `src/vigil/detect/families/` (`referential`,
+`lexical`, `encoding`, `morphological`, `statistical`, `certificate`).
+
 ### One rule per family
 
 **Within a family, rules are evaluated in order of decreasing specificity. The

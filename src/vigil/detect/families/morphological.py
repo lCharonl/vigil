@@ -3,32 +3,34 @@
 import re
 from collections.abc import Iterable
 
-from vigil.detect import config
-from vigil.detect.names import DomainName
-from vigil.detect.rules import Family, Rule
+from vigil.detect.data import thresholds
+from vigil.detect.registry import Family, Rule
+from vigil.detect.techniques.names import DomainName
 from vigil.models import Reason
 
 _DIGIT_RUN = re.compile(r"\d+")
 
 
-def has_min_hyphens(name: DomainName, minimum: int = config.MIN_HYPHENS) -> bool:
+def has_min_hyphens(name: DomainName, minimum: int = thresholds.MIN_HYPHENS) -> bool:
     """M-01: three or more hyphens in the hostname."""
     return name.fqdn.count("-") >= minimum
 
 
-def registrable_too_long(name: DomainName, maximum: int = config.MAX_REGISTRABLE_LENGTH) -> bool:
+def registrable_too_long(
+    name: DomainName, maximum: int = thresholds.MAX_REGISTRABLE_LENGTH
+) -> bool:
     """M-02: registrable domain longer than the limit."""
     return len(name.registrable) > maximum
 
 
-def has_min_labels(name: DomainName, minimum: int = config.MIN_LABELS) -> bool:
+def has_min_labels(name: DomainName, minimum: int = thresholds.MIN_LABELS) -> bool:
     """M-03: four or more labels in the hostname."""
     return len(name.labels) >= minimum
 
 
 def has_digit_run(
     name: DomainName,
-    minimum: int = config.MIN_CONSECUTIVE_DIGITS,
+    minimum: int = thresholds.MIN_CONSECUTIVE_DIGITS,
     exceptions: frozenset[str] = frozenset(),
 ) -> bool:
     """M-04: a run of consecutive digits, ignoring known brand tokens."""
@@ -43,7 +45,7 @@ def numeric_exceptions(domains: Iterable[str]) -> frozenset[str]:
     runs: set[str] = set()
     for domain in domains:
         runs.update(_DIGIT_RUN.findall(domain))
-    return frozenset(r for r in runs if len(r) >= config.MIN_CONSECUTIVE_DIGITS)
+    return frozenset(r for r in runs if len(r) >= thresholds.MIN_CONSECUTIVE_DIGITS)
 
 
 # evaluation order = registry order (most informative first)

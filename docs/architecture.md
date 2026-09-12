@@ -13,10 +13,17 @@ Vigil is split into three layers that only communicate through the `CertEvent` a
   instance (the public `certstream.calidog.io` feed is defunct); run one locally
   and pass its URL via `vigil watch --certstream-url`.
 
-- **Detection** (`vigil.detect`, stubs in this phase) consumes `CertEvent` objects and
-  the watchlist (`data/watchlist.yml`) to produce `Finding` objects: candidate
-  permutation generation (`permutations.py`), homoglyph/bitsquat matching
-  (`homoglyphs.py`), and scoring/explanation (`scoring.py`).
+- **Detection** (`vigil.detect`) consumes `CertEvent` objects and the watchlist
+  (`data/watchlist.yml`) to produce `Finding` objects. `pipeline.py` runs the enabled
+  families over each cert; `registry.py` is the Rule/Family catalogue and `scoring.py`
+  builds the `Finding` (stub). One module per family lives in `detect/families/` (only
+  `morphological.py` is implemented; the rest are stubs). `detect/techniques/` holds
+  pure string helpers — `names.py` (PSL split), `permutations.py` and `homoglyphs.py`
+  (both stubs) — and `detect/data/` holds the watchlist reader, lexical terms and
+  numeric thresholds.
+
+- **Reporting** (`vigil.reporting`) renders run-loop observability (throughput, timing,
+  per-rule counts) for `vigil watch --metrics`.
 
 - **Output** (`vigil.output`) serializes `Finding` objects, currently to JSON Lines.
 

@@ -3,7 +3,8 @@
 import re
 from pathlib import Path
 
-from vigil.detect.rules import RULE_FAMILY, TERM_RULES, Rule, load_terms
+from vigil.detect.data.terms import TERM_RULES, load_terms
+from vigil.detect.registry import RULE_FAMILY, Rule
 
 DOC = Path(__file__).resolve().parent.parent / "docs" / "detections_rules.md"
 

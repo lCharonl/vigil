@@ -16,3 +16,4 @@ build/
 data/state/
 
 CLAUDE.md
+.claude/

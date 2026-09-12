@@ -1,8 +1,8 @@
 """Detection orchestration: runs the implemented families over a CertEvent."""
 
-from vigil.detect.morphological import evaluate_morphological
-from vigil.detect.names import DomainName, parse_domain
-from vigil.detect.rules import Family, Rule
+from vigil.detect.families.morphological import evaluate_morphological
+from vigil.detect.registry import Family, Rule
+from vigil.detect.techniques.names import DomainName, parse_domain
 from vigil.models import CertEvent, Reason
 
 # families with a working evaluator

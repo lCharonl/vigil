@@ -6,10 +6,13 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from vigil.cli import MenuConfig, app
-from vigil.detect.rules import Rule
+from vigil.detect.registry import Rule
 from vigil.ingest.fixtures import FixtureSource
 
 runner = CliRunner()
+
+# import path of the interactive menu, patched to bypass questionary prompts
+_MENU = "vigil.cli.commands._prompt_menu"
 
 
 def _write_fixture(path: Path, domains_per_cert: list[list[str]]) -> None:
@@ -72,7 +75,7 @@ def _menu_config(
 
 def test_menu_without_detection_prints_certs(monkeypatch, tmp_path):
     fixture = _detection_fixture(tmp_path)
-    monkeypatch.setattr("vigil.cli._prompt_menu", lambda: _menu_config(fixture, False, None))
+    monkeypatch.setattr(_MENU, lambda: _menu_config(fixture, False, None))
     result = runner.invoke(app, [])
     assert result.exit_code == 0
     assert "domains=[" in result.stdout
@@ -90,7 +93,7 @@ def _all_output(result) -> str:
 def test_menu_with_detection_all_rules(monkeypatch, tmp_path):
     fixture = _detection_fixture(tmp_path)
     monkeypatch.setattr(
-        "vigil.cli._prompt_menu", lambda: _menu_config(fixture, True, frozenset(Rule))
+        _MENU, lambda: _menu_config(fixture, True, frozenset(Rule))
     )
     result = runner.invoke(app, [])
     assert result.exit_code == 0
@@ -102,7 +105,7 @@ def test_menu_with_detection_all_rules(monkeypatch, tmp_path):
 def test_menu_with_rule_subset_restricts_detections(monkeypatch, tmp_path):
     fixture = _detection_fixture(tmp_path)
     monkeypatch.setattr(
-        "vigil.cli._prompt_menu", lambda: _menu_config(fixture, True, frozenset({Rule.M_03}))
+        _MENU, lambda: _menu_config(fixture, True, frozenset({Rule.M_03}))
     )
     result = runner.invoke(app, [])
     assert result.exit_code == 0
@@ -115,7 +118,7 @@ def test_menu_with_rule_subset_restricts_detections(monkeypatch, tmp_path):
 def test_menu_recap_shows_configuration(monkeypatch, tmp_path):
     fixture = _detection_fixture(tmp_path)
     monkeypatch.setattr(
-        "vigil.cli._prompt_menu", lambda: _menu_config(fixture, True, frozenset({Rule.M_01}))
+        _MENU, lambda: _menu_config(fixture, True, frozenset({Rule.M_01}))
     )
     result = runner.invoke(app, [])
     assert result.exit_code == 0
@@ -152,7 +155,7 @@ def test_watch_without_metrics_flag_emits_no_block():
 def test_menu_metrics_recap(monkeypatch, tmp_path):
     fixture = _detection_fixture(tmp_path)
     monkeypatch.setattr(
-        "vigil.cli._prompt_menu",
+        _MENU,
         lambda: _menu_config(fixture, True, frozenset({Rule.M_01}), metrics=True),
     )
     result = runner.invoke(app, [])
