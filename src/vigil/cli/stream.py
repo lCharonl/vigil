@@ -9,7 +9,8 @@ from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
 
-from vigil.detect.data.watchlist import load_legitimate_domains
+from vigil.detect.data.terms import DEFAULT_TERMS_PATH, load_terms
+from vigil.detect.data.watchlist import load_brand_names, load_legitimate_domains
 from vigil.detect.families.morphological import numeric_exceptions
 from vigil.detect.pipeline import detect_event
 from vigil.detect.registry import Rule
@@ -25,11 +26,27 @@ def _load_digit_exceptions(watchlist: Path) -> frozenset[str]:
     return numeric_exceptions(load_legitimate_domains(watchlist))
 
 
+def _load_watched_brands(watchlist: Path) -> frozenset[str]:
+    """Watched brand names for referential rules, empty if the watchlist is missing."""
+    if not watchlist.exists():
+        return frozenset()
+    return load_brand_names(watchlist)
+
+
+def _load_terms(path: Path = DEFAULT_TERMS_PATH) -> dict[Rule, frozenset[str]]:
+    """Lexical terms for referential/lexical rules, empty if the file is missing."""
+    if not path.exists():
+        return {}
+    return load_terms(path)
+
+
 def _run_stream(
     src: Source,
     skip_wildcards: bool,
     detection: bool,
     digit_exceptions: frozenset[str] = frozenset(),
+    watched: frozenset[str] = frozenset(),
+    terms: dict[Rule, frozenset[str]] | None = None,
     rules: frozenset[Rule] | None = None,
     metrics: bool = False,
     metrics_interval: float = 10.0,
@@ -69,7 +86,7 @@ def _run_stream(
                     cert = filtered
                 if detection:
                     t0 = time.perf_counter()
-                    results = detect_event(cert, digit_exceptions, rules)
+                    results = detect_event(cert, digit_exceptions, watched, terms, rules=rules)
                     if stats is not None:
                         # metrics-only mode: count detections, skip per-line output
                         stats.record(len(cert.domains), time.perf_counter() - t0, results)
@@ -77,10 +94,12 @@ def _run_stream(
                     else:
                         for domain, reasons in results:
                             count += 1
+                            families = ",".join(dict.fromkeys(r.family for r in reasons))
                             matched = ",".join(r.rule for r in reasons)
                             typer.echo(
                                 f"[{count}] DETECT source={cert.source} "
-                                f"serial={cert.serial_number} domain={domain} rules={matched}"
+                                f"serial={cert.serial_number} domain={domain} "
+                                f"families={families} rules={matched}"
                             )
                 else:
                     count += 1
