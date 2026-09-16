@@ -37,3 +37,12 @@ def test_detect_event_applies_digit_exceptions():
     event = make_event(["office365.com"])
     assert detect_event(event) != []  # M-04 without exceptions
     assert detect_event(event, frozenset({"365"})) == []  # suppressed
+
+
+def test_detect_event_referential_via_pipeline():
+    event = make_event(["microsoft.login-example.com"])
+    detections = detect_event(event, watched=frozenset({"microsoft"}))
+    assert len(detections) == 1
+    domain, reasons = detections[0]
+    assert domain == "microsoft.login-example.com"
+    assert Rule.R_01 in [r.rule for r in reasons]

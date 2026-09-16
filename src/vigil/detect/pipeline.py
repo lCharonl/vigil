@@ -1,17 +1,20 @@
 """Detection orchestration: runs the implemented families over a CertEvent."""
 
 from vigil.detect.families.morphological import evaluate_morphological
+from vigil.detect.families.referential import evaluate_referential
 from vigil.detect.registry import Family, Rule
 from vigil.detect.techniques.names import DomainName, parse_domain
 from vigil.models import CertEvent, Reason
 
 # families with a working evaluator
-IMPLEMENTED_FAMILIES: tuple[Family, ...] = (Family.MORPHOLOGICAL,)
+IMPLEMENTED_FAMILIES: tuple[Family, ...] = (Family.MORPHOLOGICAL, Family.REFERENTIAL)
 
 
 def evaluate_domain(
     name: DomainName,
     digit_exceptions: frozenset[str] = frozenset(),
+    watched: frozenset[str] = frozenset(),
+    terms: dict[Rule, frozenset[str]] | None = None,
     rules: frozenset[Rule] | None = None,
 ) -> list[Reason]:
     """Collect reasons from the enabled rules (all implemented ones by default)."""
@@ -19,18 +22,23 @@ def evaluate_domain(
     morphological = evaluate_morphological(name, digit_exceptions, rules)
     if morphological is not None:
         reasons.append(morphological)
+    referential = evaluate_referential(name, watched, terms, rules)
+    if referential is not None:
+        reasons.append(referential)
     return reasons
 
 
 def detect_event(
     cert: CertEvent,
     digit_exceptions: frozenset[str] = frozenset(),
+    watched: frozenset[str] = frozenset(),
+    terms: dict[Rule, frozenset[str]] | None = None,
     rules: frozenset[Rule] | None = None,
 ) -> list[tuple[str, list[Reason]]]:
     """Return (domain, reasons) for each domain of the cert that matched."""
     detections: list[tuple[str, list[Reason]]] = []
     for domain in cert.domains:
-        reasons = evaluate_domain(parse_domain(domain), digit_exceptions, rules)
+        reasons = evaluate_domain(parse_domain(domain), digit_exceptions, watched, terms, rules)
         if reasons:
             detections.append((domain, reasons))
     return detections

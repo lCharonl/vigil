@@ -7,7 +7,8 @@ import typer
 
 from vigil.cli.defaults import DEFAULT_FIXTURES_PATH, DEFAULT_WATCHLIST_PATH
 from vigil.cli.menu import _print_recap, _prompt_menu
-from vigil.cli.stream import _load_digit_exceptions, _run_stream
+from vigil.cli.stream import _load_digit_exceptions, _load_terms, _load_watched_brands, _run_stream
+from vigil.detect.registry import Rule
 from vigil.ingest.base import Source
 from vigil.ingest.certstream import CERTSTREAM_URL, CertStreamSource
 from vigil.ingest.fixtures import FixtureSource
@@ -28,14 +29,25 @@ def main(ctx: typer.Context) -> None:
     menu = _prompt_menu()
     _print_recap(menu)
     digit_exceptions: frozenset[str] = frozenset()
+    watched: frozenset[str] = frozenset()
+    terms: dict[Rule, frozenset[str]] | None = None
     if menu.detection:
         if not DEFAULT_WATCHLIST_PATH.exists():
             logger.warning(
                 "watchlist file not found: %s (continuing without it)", DEFAULT_WATCHLIST_PATH
             )
         digit_exceptions = _load_digit_exceptions(DEFAULT_WATCHLIST_PATH)
+        watched = _load_watched_brands(DEFAULT_WATCHLIST_PATH)
+        terms = _load_terms()
     _run_stream(
-        menu.src, True, menu.detection, digit_exceptions, menu.rules, menu.metrics
+        menu.src,
+        True,
+        menu.detection,
+        digit_exceptions,
+        watched,
+        terms,
+        menu.rules,
+        menu.metrics,
     )
 
 
@@ -68,7 +80,7 @@ def watch(
     detection: bool = typer.Option(
         False,
         "--detection/--no-detection",
-        help="Run detection modules and print only detections (morphological only for now)",
+        help="Run detection modules and print only detections (morphological, referential)",
     ),
     metrics: bool = typer.Option(
         False,
@@ -100,14 +112,20 @@ def watch(
         raise typer.BadParameter(f"unknown source: {source!r} (expected certstream|fixtures)")
 
     digit_exceptions: frozenset[str] = frozenset()
+    watched: frozenset[str] = frozenset()
+    terms: dict[Rule, frozenset[str]] | None = None
     if detection:
         digit_exceptions = _load_digit_exceptions(watchlist)
+        watched = _load_watched_brands(watchlist)
+        terms = _load_terms()
 
     _run_stream(
         src,
         skip_wildcards,
         detection,
         digit_exceptions,
+        watched,
+        terms,
         metrics=metrics,
         metrics_interval=metrics_interval,
     )
