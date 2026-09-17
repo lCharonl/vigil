@@ -46,3 +46,17 @@ def test_detect_event_referential_via_pipeline():
     domain, reasons = detections[0]
     assert domain == "microsoft.login-example.com"
     assert Rule.R_01 in [r.rule for r in reasons]
+
+
+def test_detect_event_allowlist_suppresses_detection():
+    # would otherwise match M-03 (4 labels) on cisco's own legitimate infra
+    event = make_event(["b08cf4.vpn.sse.cisco.com"])
+    assert detect_event(event) != []
+    assert detect_event(event, allowlist=frozenset({"cisco.com"})) == []
+
+
+def test_detect_event_allowlist_only_suppresses_matching_domains():
+    event = make_event(["b08cf4.vpn.sse.cisco.com", "secure-a-b-c-d.com"])
+    detections = detect_event(event, allowlist=frozenset({"cisco.com"}))
+    assert len(detections) == 1
+    assert detections[0][0] == "secure-a-b-c-d.com"

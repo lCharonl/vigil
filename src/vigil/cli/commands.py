@@ -5,9 +5,19 @@ from pathlib import Path
 
 import typer
 
-from vigil.cli.defaults import DEFAULT_FIXTURES_PATH, DEFAULT_WATCHLIST_PATH
+from vigil.cli.defaults import (
+    DEFAULT_FIXTURES_PATH,
+    DEFAULT_METRICS_INTERVAL,
+    DEFAULT_WATCHLIST_PATH,
+)
 from vigil.cli.menu import _print_recap, _prompt_menu
-from vigil.cli.stream import _load_digit_exceptions, _load_terms, _load_watched_brands, _run_stream
+from vigil.cli.stream import (
+    _load_allowlist,
+    _load_digit_exceptions,
+    _load_terms,
+    _load_watched_brands,
+    _run_stream,
+)
 from vigil.detect.registry import Rule
 from vigil.ingest.base import Source
 from vigil.ingest.certstream import CERTSTREAM_URL, CertStreamSource
@@ -31,23 +41,27 @@ def main(ctx: typer.Context) -> None:
     digit_exceptions: frozenset[str] = frozenset()
     watched: frozenset[str] = frozenset()
     terms: dict[Rule, frozenset[str]] | None = None
+    allowlist: frozenset[str] = frozenset()
     if menu.detection:
-        if not DEFAULT_WATCHLIST_PATH.exists():
+        if not menu.watchlist.exists():
             logger.warning(
-                "watchlist file not found: %s (continuing without it)", DEFAULT_WATCHLIST_PATH
+                "watchlist file not found: %s (continuing without it)", menu.watchlist
             )
-        digit_exceptions = _load_digit_exceptions(DEFAULT_WATCHLIST_PATH)
-        watched = _load_watched_brands(DEFAULT_WATCHLIST_PATH)
+        digit_exceptions = _load_digit_exceptions(menu.watchlist)
+        watched = _load_watched_brands(menu.watchlist)
         terms = _load_terms()
+        allowlist = _load_allowlist(menu.watchlist)
     _run_stream(
         menu.src,
-        True,
+        menu.skip_wildcards,
         menu.detection,
         digit_exceptions,
         watched,
         terms,
         menu.rules,
         menu.metrics,
+        metrics_interval=menu.metrics_interval,
+        allowlist=allowlist,
     )
 
 
@@ -88,7 +102,7 @@ def watch(
         help="Print live throughput/timing metrics to stderr; hides individual detections",
     ),
     metrics_interval: float = typer.Option(
-        10.0, "--metrics-interval", help="Seconds between metrics snapshots"
+        DEFAULT_METRICS_INTERVAL, "--metrics-interval", help="Seconds between metrics snapshots"
     ),
 ) -> None:
     """Stream certificates from SOURCE and display them."""
@@ -114,10 +128,12 @@ def watch(
     digit_exceptions: frozenset[str] = frozenset()
     watched: frozenset[str] = frozenset()
     terms: dict[Rule, frozenset[str]] | None = None
+    allowlist: frozenset[str] = frozenset()
     if detection:
         digit_exceptions = _load_digit_exceptions(watchlist)
         watched = _load_watched_brands(watchlist)
         terms = _load_terms()
+        allowlist = _load_allowlist(watchlist)
 
     _run_stream(
         src,
@@ -128,6 +144,7 @@ def watch(
         terms,
         metrics=metrics,
         metrics_interval=metrics_interval,
+        allowlist=allowlist,
     )
 
 

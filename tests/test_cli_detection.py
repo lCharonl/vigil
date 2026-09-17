@@ -6,6 +6,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from vigil.cli import MenuConfig, app
+from vigil.cli.defaults import DEFAULT_METRICS_INTERVAL, DEFAULT_WATCHLIST_PATH
 from vigil.detect.registry import Rule
 from vigil.ingest.fixtures import FixtureSource
 
@@ -63,13 +64,20 @@ def _menu_config(
     fixture: Path,
     detection: bool,
     rules: frozenset[Rule] | None,
-    metrics: bool = False,) -> MenuConfig:
+    metrics: bool = False,
+    metrics_interval: float = DEFAULT_METRICS_INTERVAL,
+    watchlist: Path = DEFAULT_WATCHLIST_PATH,
+    skip_wildcards: bool = True,
+) -> MenuConfig:
     return MenuConfig(
         src=FixtureSource(fixture),
         source_label=f"fixtures ({fixture})",
         detection=detection,
         rules=rules,
-        metrics=metrics
+        metrics=metrics,
+        metrics_interval=metrics_interval,
+        watchlist=watchlist,
+        skip_wildcards=skip_wildcards,
     )
 
 
@@ -163,3 +171,66 @@ def test_menu_metrics_recap(monkeypatch, tmp_path):
     assert "metrics    on" in result.stdout
     assert "detection metrics" in _all_output(result)
     assert "DETECT" not in result.stdout
+
+
+def test_menu_metrics_interval_recap(monkeypatch, tmp_path):
+    fixture = _detection_fixture(tmp_path)
+    monkeypatch.setattr(
+        _MENU,
+        lambda: _menu_config(
+            fixture, True, frozenset({Rule.M_01}), metrics=True, metrics_interval=2.5
+        ),
+    )
+    result = runner.invoke(app, [])
+    assert result.exit_code == 0
+    assert "interval   2.5s" in result.stdout
+
+
+def test_menu_recap_shows_watchlist_and_wildcards(monkeypatch, tmp_path):
+    fixture = _detection_fixture(tmp_path)
+    monkeypatch.setattr(
+        _MENU,
+        lambda: _menu_config(fixture, True, frozenset({Rule.M_01}), skip_wildcards=False),
+    )
+    result = runner.invoke(app, [])
+    assert result.exit_code == 0
+    assert "wildcards  kept" in result.stdout
+    assert str(DEFAULT_WATCHLIST_PATH) in result.stdout
+
+
+def test_menu_watchlist_path_is_used(monkeypatch, tmp_path):
+    fixture = _detection_fixture(tmp_path)
+    custom_watchlist = tmp_path / "custom_watchlist.yml"
+    custom_watchlist.write_text("brands: []\n", encoding="utf-8")
+    monkeypatch.setattr(
+        _MENU,
+        lambda: _menu_config(
+            fixture, True, frozenset({Rule.M_01}), watchlist=custom_watchlist
+        ),
+    )
+    seen_paths: list[Path] = []
+    monkeypatch.setattr(
+        "vigil.cli.commands._load_watched_brands",
+        lambda path: seen_paths.append(path) or frozenset(),
+    )
+    result = runner.invoke(app, [])
+    assert result.exit_code == 0
+    assert seen_paths == [custom_watchlist]
+
+
+def test_menu_skip_wildcards_false_keeps_wildcard_domain(monkeypatch, tmp_path):
+    path = tmp_path / "certs.jsonl"
+    _write_fixture(path, [["*.example.com"]])
+    monkeypatch.setattr(_MENU, lambda: _menu_config(path, False, None, skip_wildcards=False))
+    result = runner.invoke(app, [])
+    assert result.exit_code == 0
+    assert "*.example.com" in result.stdout
+
+
+def test_menu_skip_wildcards_true_drops_wildcard_only_cert(monkeypatch, tmp_path):
+    path = tmp_path / "certs.jsonl"
+    _write_fixture(path, [["*.example.com"]])
+    monkeypatch.setattr(_MENU, lambda: _menu_config(path, False, None, skip_wildcards=True))
+    result = runner.invoke(app, [])
+    assert result.exit_code == 0
+    assert "*.example.com" not in result.stdout

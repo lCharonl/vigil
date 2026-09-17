@@ -9,7 +9,11 @@ from questionary import Choice
 from rich.console import Console
 from rich.panel import Panel
 
-from vigil.cli.defaults import DEFAULT_FIXTURES_PATH
+from vigil.cli.defaults import (
+    DEFAULT_FIXTURES_PATH,
+    DEFAULT_METRICS_INTERVAL,
+    DEFAULT_WATCHLIST_PATH,
+)
 from vigil.detect.data import thresholds
 from vigil.detect.pipeline import IMPLEMENTED_FAMILIES
 from vigil.detect.registry import RULE_FAMILY, Rule
@@ -36,6 +40,17 @@ class MenuConfig:
     detection: bool
     rules: frozenset[Rule] | None = None
     metrics: bool = False
+    metrics_interval: float = DEFAULT_METRICS_INTERVAL
+    watchlist: Path = DEFAULT_WATCHLIST_PATH
+    skip_wildcards: bool = True
+
+
+def _positive_number(text: str) -> bool:
+    """Validate a questionary text answer as a strictly positive float."""
+    try:
+        return float(text) > 0
+    except ValueError:
+        return False
 
 
 def _ask(prompt: questionary.Question):
@@ -78,8 +93,11 @@ def _prompt_menu() -> MenuConfig:
         src = FixtureSource(Path(fixtures_path))
         source_label = f"fixtures ({fixtures_path})"
 
+    skip_wildcards = _ask(questionary.confirm("Skip wildcard certificates?", default=True))
+
     detection = _ask(questionary.confirm("Enable detection?", default=False))
     rules: frozenset[Rule] | None = None
+    watchlist = DEFAULT_WATCHLIST_PATH
     if detection:
         families = _ask(
             questionary.checkbox(
@@ -104,13 +122,28 @@ def _prompt_menu() -> MenuConfig:
         if not rules:
             console.print("[yellow]no rules selected: detection will match nothing[/]")
 
+        watchlist = Path(
+            _ask(questionary.path("Watchlist file:", default=str(DEFAULT_WATCHLIST_PATH)))
+        )
+
     metrics = False
+    metrics_interval = DEFAULT_METRICS_INTERVAL
     if detection:
         metrics = _ask(
             questionary.confirm(
                 "Metrics only (hide individual detections)?", default=True
             )
         )
+        if metrics:
+            metrics_interval = float(
+                _ask(
+                    questionary.text(
+                        "Metrics interval (seconds):",
+                        default=str(DEFAULT_METRICS_INTERVAL),
+                        validate=_positive_number,
+                    )
+                )
+            )
 
     return MenuConfig(
         src=src,
@@ -118,17 +151,26 @@ def _prompt_menu() -> MenuConfig:
         detection=detection,
         rules=rules,
         metrics=metrics,
+        metrics_interval=metrics_interval,
+        watchlist=watchlist,
+        skip_wildcards=skip_wildcards,
     )
 
 
 def _print_recap(menu: MenuConfig) -> None:
     """Show the chosen configuration in a bordered panel."""
-    lines = [f"source     {menu.source_label}"]
+    lines = [
+        f"source     {menu.source_label}",
+        f"wildcards  {'skipped' if menu.skip_wildcards else 'kept'}",
+    ]
     if menu.detection:
         enabled = sorted(r.value for r in (menu.rules or frozenset()))
         lines.append("detection  on")
+        lines.append(f"watchlist  {menu.watchlist}")
         lines.append(f"rules      {', '.join(enabled) if enabled else 'none'}")
         lines.append(f"metrics    {'on' if menu.metrics else 'off'}")
+        if menu.metrics:
+            lines.append(f"interval   {menu.metrics_interval}s")
     else:
         lines.append("detection  off")
     console.print(Panel("\n".join(lines), title="run configuration", border_style="green"))

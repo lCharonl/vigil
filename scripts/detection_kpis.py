@@ -25,7 +25,9 @@ DEFAULT_DURATION = 300
 
 async def run(url: str, duration: float, watchlist: str) -> None:
     src = CertStreamSource(url=url)
-    digit_exceptions = numeric_exceptions(load_legitimate_domains(watchlist))
+    legit_domains = load_legitimate_domains(watchlist)
+    digit_exceptions = numeric_exceptions(legit_domains)
+    allowlist = frozenset(legit_domains)
     stats = DetectionMetrics()
 
     start = time.monotonic()
@@ -34,7 +36,7 @@ async def run(url: str, duration: float, watchlist: str) -> None:
         if event is None:
             continue
         t0 = time.perf_counter()
-        results = detect_event(event, digit_exceptions)
+        results = detect_event(event, digit_exceptions, allowlist=allowlist)
         stats.record(len(event.domains), time.perf_counter() - t0, results)
 
         if time.monotonic() - start >= duration:

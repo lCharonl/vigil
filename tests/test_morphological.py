@@ -19,6 +19,15 @@ def test_parse_domain_multi_label_suffix():
     assert name.labels == ("login", "micro", "foo", "co", "uk")
 
 
+def test_parse_domain_psl_private_suffix():
+    # pages.dev is a PaaS suffix (PSL private section): the customer subdomain is the
+    # registrable domain, not "pages" mistakenly split off "dev"
+    name = parse_domain("beargummy.pages.dev")
+    assert name.registrable == "beargummy.pages.dev"
+    assert name.suffix == "pages.dev"
+    assert name.subdomain == ""
+
+
 def test_m01_hyphen_threshold():
     assert not has_min_hyphens(parse_domain("a-b-c.com"))  # 2 hyphens
     assert has_min_hyphens(parse_domain("a-b-c-d.com"))  # 3 hyphens

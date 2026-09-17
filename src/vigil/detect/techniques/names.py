@@ -5,7 +5,9 @@ from dataclasses import dataclass
 import tldextract
 
 # offline: use the bundled PSL snapshot, never hit the network at runtime
-_EXTRACT = tldextract.TLDExtract(suffix_list_urls=())
+# include_psl_private_domains: treat PaaS suffixes (pages.dev, workers.dev, ...) as
+# suffixes too, otherwise their platform label is misparsed as the registrable domain
+_EXTRACT = tldextract.TLDExtract(suffix_list_urls=(), include_psl_private_domains=True)
 
 
 @dataclass(frozen=True)

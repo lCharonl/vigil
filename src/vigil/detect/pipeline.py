@@ -1,5 +1,6 @@
 """Detection orchestration: runs the implemented families over a CertEvent."""
 
+from vigil.detect.data.watchlist import is_allowlisted
 from vigil.detect.families.morphological import evaluate_morphological
 from vigil.detect.families.referential import evaluate_referential
 from vigil.detect.registry import Family, Rule
@@ -34,11 +35,15 @@ def detect_event(
     watched: frozenset[str] = frozenset(),
     terms: dict[Rule, frozenset[str]] | None = None,
     rules: frozenset[Rule] | None = None,
+    allowlist: frozenset[str] = frozenset(),
 ) -> list[tuple[str, list[Reason]]]:
     """Return (domain, reasons) for each domain of the cert that matched."""
     detections: list[tuple[str, list[Reason]]] = []
     for domain in cert.domains:
-        reasons = evaluate_domain(parse_domain(domain), digit_exceptions, watched, terms, rules)
+        name = parse_domain(domain)
+        if is_allowlisted(name, allowlist):
+            continue
+        reasons = evaluate_domain(name, digit_exceptions, watched, terms, rules)
         if reasons:
             detections.append((domain, reasons))
     return detections

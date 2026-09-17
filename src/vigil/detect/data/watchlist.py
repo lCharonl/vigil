@@ -4,6 +4,8 @@ from pathlib import Path
 
 import yaml
 
+from vigil.detect.techniques.names import DomainName
+
 
 def load_legitimate_domains(path: Path | str) -> list[str]:
     """Return every legitimate_domain listed in the watchlist YAML."""
@@ -31,3 +33,8 @@ def load_brand_names(path: Path | str, tiers: frozenset[str] | None = None) -> f
         if name:
             names.add(name.strip().lower())
     return frozenset(names)
+
+
+def is_allowlisted(name: DomainName, allowlist: frozenset[str]) -> bool:
+    """True if the domain is a known-legitimate domain or one of its subdomains."""
+    return any(name.fqdn == legit or name.fqdn.endswith(f".{legit}") for legit in allowlist)

@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
 
+from vigil.cli.defaults import DEFAULT_METRICS_INTERVAL
 from vigil.detect.data.terms import DEFAULT_TERMS_PATH, load_terms
 from vigil.detect.data.watchlist import load_brand_names, load_legitimate_domains
 from vigil.detect.families.morphological import numeric_exceptions
@@ -33,6 +34,13 @@ def _load_watched_brands(watchlist: Path) -> frozenset[str]:
     return load_brand_names(watchlist)
 
 
+def _load_allowlist(watchlist: Path) -> frozenset[str]:
+    """Known-legitimate domains that suppress all detections when matched."""
+    if not watchlist.exists():
+        return frozenset()
+    return frozenset(load_legitimate_domains(watchlist))
+
+
 def _load_terms(path: Path = DEFAULT_TERMS_PATH) -> dict[Rule, frozenset[str]]:
     """Lexical terms for referential/lexical rules, empty if the file is missing."""
     if not path.exists():
@@ -49,7 +57,8 @@ def _run_stream(
     terms: dict[Rule, frozenset[str]] | None = None,
     rules: frozenset[Rule] | None = None,
     metrics: bool = False,
-    metrics_interval: float = 10.0,
+    metrics_interval: float = DEFAULT_METRICS_INTERVAL,
+    allowlist: frozenset[str] = frozenset(),
 ) -> None:
     """Drive the ingestion loop, printing certs or detections."""
 
@@ -86,7 +95,9 @@ def _run_stream(
                     cert = filtered
                 if detection:
                     t0 = time.perf_counter()
-                    results = detect_event(cert, digit_exceptions, watched, terms, rules=rules)
+                    results = detect_event(
+                        cert, digit_exceptions, watched, terms, rules=rules, allowlist=allowlist
+                    )
                     if stats is not None:
                         # metrics-only mode: count detections, skip per-line output
                         stats.record(len(cert.domains), time.perf_counter() - t0, results)
