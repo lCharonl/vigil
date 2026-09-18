@@ -1,19 +1,13 @@
-"""CLI tests for the --detection flag and the interactive menu."""
+"""CLI tests for the --detection flag and rule-toggle config."""
 
 import json
 from pathlib import Path
 
 from typer.testing import CliRunner
 
-from vigil.cli import MenuConfig, app
-from vigil.cli.defaults import DEFAULT_METRICS_INTERVAL, DEFAULT_WATCHLIST_PATH
-from vigil.detect.registry import Rule
-from vigil.ingest.fixtures import FixtureSource
+from vigil.cli import app
 
 runner = CliRunner()
-
-# import path of the interactive menu, patched to bypass questionary prompts
-_MENU = "vigil.cli.commands._prompt_menu"
 
 
 def _write_fixture(path: Path, domains_per_cert: list[list[str]]) -> None:
@@ -38,10 +32,32 @@ def _write_fixture(path: Path, domains_per_cert: list[list[str]]) -> None:
 
 
 def _detection_fixture(tmp_path: Path) -> Path:
-    # one M-01 hit (3 hyphens), one M-03 hit (5 labels)
+    # both certs are reinforced by a watched brand (chase, in the default
+    # watchlist) so morphological alone isn't suppressed as too weak
     path = tmp_path / "certs.jsonl"
-    _write_fixture(path, [["secure-login-verify-my.example.com"], ["a.b.c.example.com"]])
+    _write_fixture(
+        path,
+        [
+            ["chase.secure-login-verify-my.example.com"],  # M-01 + L-04 + R-01
+            ["chase.a.b.c.example.com"],  # M-03 + R-01
+        ],
+    )
     return path
+
+
+def _write_rules_config(tmp_path: Path, enabled: dict[str, bool]) -> Path:
+    path = tmp_path / "rules.yml"
+    body = "\n".join(f"  {rule}: {'true' if on else 'false'}" for rule, on in enabled.items())
+    path.write_text(f"rules:\n{body}\n", encoding="utf-8")
+    return path
+
+
+def _all_output(result) -> str:
+    """stdout plus stderr, whichever the runner captured separately."""
+    try:
+        return result.stdout + result.stderr
+    except (ValueError, AttributeError):
+        return result.stdout
 
 
 def test_default_view_prints_certs_not_detections():
@@ -60,86 +76,57 @@ def test_detection_view_prints_only_detections():
             assert "DETECT" in line
 
 
-def _menu_config(
-    fixture: Path,
-    detection: bool,
-    rules: frozenset[Rule] | None,
-    metrics: bool = False,
-    metrics_interval: float = DEFAULT_METRICS_INTERVAL,
-    watchlist: Path = DEFAULT_WATCHLIST_PATH,
-    skip_wildcards: bool = True,
-) -> MenuConfig:
-    return MenuConfig(
-        src=FixtureSource(fixture),
-        source_label=f"fixtures ({fixture})",
-        detection=detection,
-        rules=rules,
-        metrics=metrics,
-        metrics_interval=metrics_interval,
-        watchlist=watchlist,
-        skip_wildcards=skip_wildcards,
-    )
-
-
-def test_menu_without_detection_prints_certs(monkeypatch, tmp_path):
+def test_detection_with_all_rules_enabled(tmp_path):
     fixture = _detection_fixture(tmp_path)
-    monkeypatch.setattr(_MENU, lambda: _menu_config(fixture, False, None))
-    result = runner.invoke(app, [])
-    assert result.exit_code == 0
-    assert "domains=[" in result.stdout
-    assert "DETECT" not in result.stdout
-
-
-def _all_output(result) -> str:
-    """stdout plus stderr, whichever the runner captured separately."""
-    try:
-        return result.stdout + result.stderr
-    except (ValueError, AttributeError):
-        return result.stdout
-
-
-def test_menu_with_detection_all_rules(monkeypatch, tmp_path):
-    # M-01/M-03 alone are too weak to report (docs/detections_rules.md,
-    # "Morphological"); reinforce each with a watched brand (R-01) so the
-    # pipeline keeps them when every rule, including referential, is enabled.
-    path = tmp_path / "certs.jsonl"
-    _write_fixture(
-        path,
-        [
-            ["chase.secure-login-verify-my.example.com"],
-            ["chase.a.b.c.example.com"],
-        ],
+    result = runner.invoke(
+        app, ["watch", "--source", "fixtures", "--fixtures-path", str(fixture), "--detection"]
     )
-    monkeypatch.setattr(_MENU, lambda: _menu_config(path, True, frozenset(Rule)))
-    result = runner.invoke(app, [])
     assert result.exit_code == 0
-    assert "domains=[" not in result.stdout
     assert "rules=R-01,L-04,M-01" in result.stdout
     assert "rules=R-01,M-03" in result.stdout
 
 
-def test_menu_with_rule_subset_restricts_detections(monkeypatch, tmp_path):
+def test_rules_config_restricts_detections(tmp_path):
     fixture = _detection_fixture(tmp_path)
-    monkeypatch.setattr(
-        _MENU, lambda: _menu_config(fixture, True, frozenset({Rule.M_03}))
+    all_rules = ["R-01", "R-02", "R-03", "R-04", "L-01", "L-02", "L-03", "L-04", "M-01", "M-02", "M-03", "M-04"]
+    rules_config = _write_rules_config(tmp_path, {r: r == "M-03" for r in all_rules})
+    result = runner.invoke(
+        app,
+        [
+            "watch",
+            "--source",
+            "fixtures",
+            "--fixtures-path",
+            str(fixture),
+            "--detection",
+            "--rules-config",
+            str(rules_config),
+        ],
     )
-    result = runner.invoke(app, [])
     assert result.exit_code == 0
     detect_lines = [line for line in result.stdout.splitlines() if "DETECT" in line]
-    assert len(detect_lines) == 1
-    assert "rules=M-03" in detect_lines[0]
-    assert "domain=a.b.c.example.com" in detect_lines[0]
+    # both fixture domains have 4+ labels, so both match M-03; nothing else is enabled
+    assert len(detect_lines) == 2
+    assert all("rules=M-03" in line for line in detect_lines)
 
 
-def test_menu_recap_shows_configuration(monkeypatch, tmp_path):
+def test_rules_config_missing_file_enables_everything(tmp_path):
     fixture = _detection_fixture(tmp_path)
-    monkeypatch.setattr(
-        _MENU, lambda: _menu_config(fixture, True, frozenset({Rule.M_01}))
+    result = runner.invoke(
+        app,
+        [
+            "watch",
+            "--source",
+            "fixtures",
+            "--fixtures-path",
+            str(fixture),
+            "--detection",
+            "--rules-config",
+            str(tmp_path / "missing.yml"),
+        ],
     )
-    result = runner.invoke(app, [])
     assert result.exit_code == 0
-    assert "run configuration" in result.stdout
-    assert "M-01" in result.stdout
+    assert "rules=R-01,L-04,M-01" in result.stdout
 
 
 def test_watch_metrics_flag_emits_block():
@@ -168,77 +155,55 @@ def test_watch_without_metrics_flag_emits_no_block():
     assert "detection metrics" not in _all_output(result)
 
 
-def test_menu_metrics_recap(monkeypatch, tmp_path):
-    fixture = _detection_fixture(tmp_path)
-    monkeypatch.setattr(
-        _MENU,
-        lambda: _menu_config(fixture, True, frozenset({Rule.M_01}), metrics=True),
-    )
-    result = runner.invoke(app, [])
-    assert result.exit_code == 0
-    assert "metrics    on" in result.stdout
-    assert "detection metrics" in _all_output(result)
-    assert "DETECT" not in result.stdout
-
-
-def test_menu_metrics_interval_recap(monkeypatch, tmp_path):
-    fixture = _detection_fixture(tmp_path)
-    monkeypatch.setattr(
-        _MENU,
-        lambda: _menu_config(
-            fixture, True, frozenset({Rule.M_01}), metrics=True, metrics_interval=2.5
-        ),
-    )
-    result = runner.invoke(app, [])
-    assert result.exit_code == 0
-    assert "interval   2.5s" in result.stdout
-
-
-def test_menu_recap_shows_watchlist_and_wildcards(monkeypatch, tmp_path):
-    fixture = _detection_fixture(tmp_path)
-    monkeypatch.setattr(
-        _MENU,
-        lambda: _menu_config(fixture, True, frozenset({Rule.M_01}), skip_wildcards=False),
-    )
-    result = runner.invoke(app, [])
-    assert result.exit_code == 0
-    assert "wildcards  kept" in result.stdout
-    assert str(DEFAULT_WATCHLIST_PATH) in result.stdout
-
-
-def test_menu_watchlist_path_is_used(monkeypatch, tmp_path):
+def test_watch_watchlist_path_is_used(monkeypatch, tmp_path):
     fixture = _detection_fixture(tmp_path)
     custom_watchlist = tmp_path / "custom_watchlist.yml"
     custom_watchlist.write_text("brands: []\n", encoding="utf-8")
-    monkeypatch.setattr(
-        _MENU,
-        lambda: _menu_config(
-            fixture, True, frozenset({Rule.M_01}), watchlist=custom_watchlist
-        ),
-    )
     seen_paths: list[Path] = []
     monkeypatch.setattr(
         "vigil.cli.commands._load_watched_brands",
         lambda path: seen_paths.append(path) or frozenset(),
     )
-    result = runner.invoke(app, [])
+    result = runner.invoke(
+        app,
+        [
+            "watch",
+            "--source",
+            "fixtures",
+            "--fixtures-path",
+            str(fixture),
+            "--detection",
+            "--watchlist",
+            str(custom_watchlist),
+        ],
+    )
     assert result.exit_code == 0
     assert seen_paths == [custom_watchlist]
 
 
-def test_menu_skip_wildcards_false_keeps_wildcard_domain(monkeypatch, tmp_path):
+def test_skip_wildcards_false_keeps_wildcard_domain(tmp_path):
     path = tmp_path / "certs.jsonl"
     _write_fixture(path, [["*.example.com"]])
-    monkeypatch.setattr(_MENU, lambda: _menu_config(path, False, None, skip_wildcards=False))
-    result = runner.invoke(app, [])
+    result = runner.invoke(
+        app,
+        [
+            "watch",
+            "--source",
+            "fixtures",
+            "--fixtures-path",
+            str(path),
+            "--no-skip-wildcards",
+        ],
+    )
     assert result.exit_code == 0
     assert "*.example.com" in result.stdout
 
 
-def test_menu_skip_wildcards_true_drops_wildcard_only_cert(monkeypatch, tmp_path):
+def test_skip_wildcards_true_drops_wildcard_only_cert(tmp_path):
     path = tmp_path / "certs.jsonl"
     _write_fixture(path, [["*.example.com"]])
-    monkeypatch.setattr(_MENU, lambda: _menu_config(path, False, None, skip_wildcards=True))
-    result = runner.invoke(app, [])
+    result = runner.invoke(
+        app, ["watch", "--source", "fixtures", "--fixtures-path", str(path)]
+    )
     assert result.exit_code == 0
     assert "*.example.com" not in result.stdout

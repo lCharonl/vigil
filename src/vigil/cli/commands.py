@@ -1,4 +1,4 @@
-"""Typer commands: the `vigil` entry point and its interactive default."""
+"""Typer commands: the `vigil` entry point and the `watch` command."""
 
 import logging
 from pathlib import Path
@@ -10,7 +10,6 @@ from vigil.cli.defaults import (
     DEFAULT_METRICS_INTERVAL,
     DEFAULT_WATCHLIST_PATH,
 )
-from vigil.cli.menu import _print_recap, _prompt_menu
 from vigil.cli.stream import (
     _load_allowlist,
     _load_digit_exceptions,
@@ -18,6 +17,7 @@ from vigil.cli.stream import (
     _load_watched_brands,
     _run_stream,
 )
+from vigil.detect.data.rules_config import DEFAULT_RULES_CONFIG_PATH, load_enabled_rules
 from vigil.detect.registry import Rule
 from vigil.ingest.base import Source
 from vigil.ingest.certstream import CERTSTREAM_URL, CertStreamSource
@@ -28,40 +28,11 @@ app = typer.Typer(add_completion=False)
 logger = logging.getLogger("vigil")
 
 
-@app.callback(invoke_without_command=True)
-def main(ctx: typer.Context) -> None:
+@app.callback()
+def main() -> None:
     """Vigil: phishing-infrastructure detection from Certificate Transparency logs."""
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
-    )
-    if ctx.invoked_subcommand is not None:
-        return
-    menu = _prompt_menu()
-    _print_recap(menu)
-    digit_exceptions: frozenset[str] = frozenset()
-    watched: frozenset[str] = frozenset()
-    terms: dict[Rule, frozenset[str]] | None = None
-    allowlist: frozenset[str] = frozenset()
-    if menu.detection:
-        if not menu.watchlist.exists():
-            logger.warning(
-                "watchlist file not found: %s (continuing without it)", menu.watchlist
-            )
-        digit_exceptions = _load_digit_exceptions(menu.watchlist)
-        watched = _load_watched_brands(menu.watchlist)
-        terms = _load_terms()
-        allowlist = _load_allowlist(menu.watchlist)
-    _run_stream(
-        menu.src,
-        menu.skip_wildcards,
-        menu.detection,
-        digit_exceptions,
-        watched,
-        terms,
-        menu.rules,
-        menu.metrics,
-        metrics_interval=menu.metrics_interval,
-        allowlist=allowlist,
     )
 
 
@@ -75,6 +46,9 @@ def watch(
     ),
     watchlist: Path = typer.Option(
         DEFAULT_WATCHLIST_PATH, "--watchlist", help="Path to the watchlist YAML file"
+    ),
+    rules_config: Path = typer.Option(
+        DEFAULT_RULES_CONFIG_PATH, "--rules-config", help="Path to the rule toggles YAML file"
     ),
     output: Path | None = typer.Option(
         None,
@@ -129,11 +103,13 @@ def watch(
     watched: frozenset[str] = frozenset()
     terms: dict[Rule, frozenset[str]] | None = None
     allowlist: frozenset[str] = frozenset()
+    rules: frozenset[Rule] | None = None
     if detection:
         digit_exceptions = _load_digit_exceptions(watchlist)
         watched = _load_watched_brands(watchlist)
         terms = _load_terms()
         allowlist = _load_allowlist(watchlist)
+        rules = load_enabled_rules(rules_config)
 
     _run_stream(
         src,
@@ -142,6 +118,7 @@ def watch(
         digit_exceptions,
         watched,
         terms,
+        rules,
         metrics=metrics,
         metrics_interval=metrics_interval,
         allowlist=allowlist,
