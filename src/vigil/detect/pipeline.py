@@ -18,14 +18,18 @@ def evaluate_domain(
     terms: dict[Rule, frozenset[str]] | None = None,
     rules: frozenset[Rule] | None = None,
 ) -> list[Reason]:
-    """Collect reasons from the enabled rules (all implemented ones by default)."""
+    """Collect reasons from the enabled rules (all implemented ones by default).
+
+    Morphological reasons are weak alone (docs/detections_rules.md, "Morphological")
+    and are kept only if another family also matched the same domain.
+    """
     reasons: list[Reason] = []
     morphological = evaluate_morphological(name, digit_exceptions, rules)
-    if morphological is not None:
-        reasons.append(morphological)
     referential = evaluate_referential(name, watched, terms, rules)
     if referential is not None:
         reasons.append(referential)
+    if morphological is not None and reasons:
+        reasons.append(morphological)
     return reasons
 
 

@@ -76,7 +76,6 @@ def brand_adjacent_to_auth_term(
     )
 
 
-# evaluation order = decreasing specificity (docs/detections_rules.md)
 REFERENTIAL_RULES: tuple[Rule, ...] = (Rule.R_01, Rule.R_02, Rule.R_03, Rule.R_04)
 
 
