@@ -81,6 +81,22 @@ def test_detect_event_allowlist_suppresses_detection():
     )
 
 
+def test_detect_event_lexical_alone_is_kept():
+    event = make_event(["mfa-example.com"])
+    detections = detect_event(event, terms={Rule.L_01: frozenset({"mfa"})})
+    assert len(detections) == 1
+    _domain, reasons = detections[0]
+    assert [r.rule for r in reasons] == [Rule.L_01]
+
+
+def test_detect_event_lexical_reinforces_morphological():
+    event = make_event(["secure-login-verify-my.example.com"])
+    detections = detect_event(event, terms={Rule.L_04: frozenset({"login"})})
+    assert len(detections) == 1
+    _domain, reasons = detections[0]
+    assert {r.rule for r in reasons} == {Rule.L_04, Rule.M_01}
+
+
 def test_detect_event_allowlist_only_suppresses_matching_domains():
     event = make_event(
         ["microsoft.b08cf4.vpn.sse.cisco.com", "microsoft.secure-a-b-c-d.com"]
