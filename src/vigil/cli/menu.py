@@ -24,6 +24,14 @@ from vigil.ingest.fixtures import FixtureSource
 console = Console()
 
 RULE_LABELS: dict[Rule, str] = {
+    Rule.R_01: "brand in a subdomain, absent from the registrable domain",
+    Rule.R_02: "brand immediately followed by a TLD-like token",
+    Rule.R_03: "registrable domain within edit distance 2 of a brand",
+    Rule.R_04: "brand adjacent to an authentication term",
+    Rule.L_01: "MFA / strong-authentication vocabulary",
+    Rule.L_02: "document / file-sharing vocabulary",
+    Rule.L_03: "`www` used as a domain component, not a real subdomain",
+    Rule.L_04: "generic auth, finance or urgency vocabulary",
     Rule.M_01: f"{thresholds.MIN_HYPHENS}+ hyphens in hostname",
     Rule.M_02: f"registrable domain > {thresholds.MAX_REGISTRABLE_LENGTH} chars",
     Rule.M_03: f"{thresholds.MIN_LABELS}+ labels in hostname",
