@@ -129,6 +129,46 @@ def test_rules_config_missing_file_enables_everything(tmp_path):
     assert "rules=R-01,L-04,M-01" in result.stdout
 
 
+def test_config_file_drives_detection_and_metrics_without_flags(tmp_path):
+    fixture = _detection_fixture(tmp_path)
+    config_path = tmp_path / "config.yml"
+    config_path.write_text(
+        f"""
+source: fixtures
+fixtures_path: {fixture}
+detection: true
+metrics: true
+metrics_interval: 2.5
+""",
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["watch", "--config", str(config_path)])
+    assert result.exit_code == 0
+    # metrics=true hides individual DETECT lines, so check the metrics block instead
+    assert "DETECT" not in result.stdout
+    assert "detection metrics" in _all_output(result)
+    assert "analysis/domain" in _all_output(result)
+
+
+def test_explicit_flag_overrides_config_file(tmp_path):
+    fixture = _detection_fixture(tmp_path)
+    config_path = tmp_path / "config.yml"
+    config_path.write_text(
+        f"""
+source: fixtures
+fixtures_path: {fixture}
+detection: true
+""",
+        encoding="utf-8",
+    )
+    result = runner.invoke(
+        app, ["watch", "--config", str(config_path), "--no-detection"]
+    )
+    assert result.exit_code == 0
+    assert "DETECT" not in result.stdout
+    assert "domains=[" in result.stdout
+
+
 def test_watch_metrics_flag_emits_block():
     result = runner.invoke(
         app, ["watch", "--source", "fixtures", "--detection", "--metrics"]

@@ -1,0 +1,10 @@
+# Run config for `vigil watch`
+source: certstream          # certstream | fixtures
+certstream_url: ws://127.0.0.1:8080/
+fixtures_path: tests/fixtures/certs.jsonl
+watchlist: data/watchlist.yml
+rules_config: data/rules.yml
+skip_wildcards: true
+detection: true
+metrics: true
+metrics_interval: 2.0
