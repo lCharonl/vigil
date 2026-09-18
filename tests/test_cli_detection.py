@@ -99,15 +99,23 @@ def _all_output(result) -> str:
 
 
 def test_menu_with_detection_all_rules(monkeypatch, tmp_path):
-    fixture = _detection_fixture(tmp_path)
-    monkeypatch.setattr(
-        _MENU, lambda: _menu_config(fixture, True, frozenset(Rule))
+    # M-01/M-03 alone are too weak to report (docs/detections_rules.md,
+    # "Morphological"); reinforce each with a watched brand (R-01) so the
+    # pipeline keeps them when every rule, including referential, is enabled.
+    path = tmp_path / "certs.jsonl"
+    _write_fixture(
+        path,
+        [
+            ["chase.secure-login-verify-my.example.com"],
+            ["chase.a.b.c.example.com"],
+        ],
     )
+    monkeypatch.setattr(_MENU, lambda: _menu_config(path, True, frozenset(Rule)))
     result = runner.invoke(app, [])
     assert result.exit_code == 0
     assert "domains=[" not in result.stdout
-    assert "rules=M-01" in result.stdout
-    assert "rules=M-03" in result.stdout
+    assert "rules=R-01,M-01" in result.stdout
+    assert "rules=R-01,M-03" in result.stdout
 
 
 def test_menu_with_rule_subset_restricts_detections(monkeypatch, tmp_path):

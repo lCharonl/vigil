@@ -3,12 +3,19 @@
 from vigil.detect.data.watchlist import is_allowlisted
 from vigil.detect.families.morphological import evaluate_morphological
 from vigil.detect.families.referential import evaluate_referential
-from vigil.detect.registry import Family, Rule
+from vigil.detect.registry import RULE_FAMILY, Family, Rule
 from vigil.detect.techniques.names import DomainName, parse_domain
 from vigil.models import CertEvent, Reason
 
 # families with a working evaluator
 IMPLEMENTED_FAMILIES: tuple[Family, ...] = (Family.MORPHOLOGICAL, Family.REFERENTIAL)
+
+
+def _other_family_enabled(rules: frozenset[Rule] | None) -> bool:
+    """Whether any non-morphological rule is in scope, to reinforce morphological hits."""
+    if rules is None:
+        return True
+    return any(RULE_FAMILY[rule] != Family.MORPHOLOGICAL for rule in rules)
 
 
 def evaluate_domain(
@@ -21,14 +28,16 @@ def evaluate_domain(
     """Collect reasons from the enabled rules (all implemented ones by default).
 
     Morphological reasons are weak alone (docs/detections_rules.md, "Morphological")
-    and are kept only if another family also matched the same domain.
+    and are kept only if another family also matched the same domain — unless the
+    caller explicitly scoped `rules` to morphological only, in which case there is
+    nothing to reinforce with and the restriction is honored as-is.
     """
     reasons: list[Reason] = []
     morphological = evaluate_morphological(name, digit_exceptions, rules)
     referential = evaluate_referential(name, watched, terms, rules)
     if referential is not None:
         reasons.append(referential)
-    if morphological is not None and reasons:
+    if morphological is not None and (reasons or not _other_family_enabled(rules)):
         reasons.append(morphological)
     return reasons
 
