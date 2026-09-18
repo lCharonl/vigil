@@ -56,6 +56,7 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
+        print("-----Beginning detection-----")
         asyncio.run(run(args.certstream_url, args.duration, args.watchlist))
     except KeyboardInterrupt:
         pass

@@ -78,6 +78,7 @@ def main() -> None:
     parser.add_argument("--certstream-url", default=CERTSTREAM_URL, help="websocket URL")
     parser.add_argument("--top", type=int, default=15, help="sources shown per snapshot")
     args = parser.parse_args()
+    print("-----Beginning detection-----")
 
     try:
         asyncio.run(run(args.certstream_url, args.top))

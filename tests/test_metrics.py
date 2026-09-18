@@ -28,12 +28,30 @@ def test_record_counts_multiple_reasons():
     assert m.by_rule["M-03"] == 1
 
 
+def test_record_accumulates_by_family():
+    m = DetectionMetrics()
+    m.record(1, 0.001, [("x.com", [Reason(family="referential", rule="R-03", points=0)])])
+    m.record(1, 0.001, [("y.com", [_reason("M-01"), _reason("M-03")])])
+    assert m.by_family["referential"] == 1
+    assert m.by_family["morphological"] == 2
+
+
 def test_snapshot_contains_sections():
     m = DetectionMetrics()
     m.record(4, 0.002, [("a.b.c.d.com", [_reason("M-03")])])
     out = m.snapshot()
-    for token in ("certs:", "domains:", "/s", "analysis/domain", "by rule", "M-03"):
+    for token in ("certs:", "domains:", "/s", "analysis/domain", "by family", "by rule", "M-03", "morphological"):
         assert token in out
+
+
+def test_snapshot_by_family_sorted_most_common_first():
+    m = DetectionMetrics()
+    m.record(1, 0.001, [("x.com", [Reason(family="referential", rule="R-03", points=0)])])
+    m.record(1, 0.001, [("y.com", [_reason("M-01")])])
+    m.record(1, 0.001, [("z.com", [_reason("M-03")])])
+    out = m.snapshot()
+    by_family_block = out.split("by family:")[1].split("by rule:")[0]
+    assert by_family_block.index("morphological") < by_family_block.index("referential")
 
 
 def test_snapshot_zero_domains_no_crash():

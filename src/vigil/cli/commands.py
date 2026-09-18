@@ -5,11 +5,7 @@ from pathlib import Path
 
 import typer
 
-from vigil.cli.defaults import (
-    DEFAULT_FIXTURES_PATH,
-    DEFAULT_METRICS_INTERVAL,
-    DEFAULT_WATCHLIST_PATH,
-)
+from vigil.cli.run_config import DEFAULT_RUN_CONFIG_PATH, load_run_config
 from vigil.cli.stream import (
     _load_allowlist,
     _load_digit_exceptions,
@@ -17,10 +13,10 @@ from vigil.cli.stream import (
     _load_watched_brands,
     _run_stream,
 )
-from vigil.detect.data.rules_config import DEFAULT_RULES_CONFIG_PATH, load_enabled_rules
+from vigil.detect.data.rules_config import load_enabled_rules
 from vigil.detect.registry import Rule
 from vigil.ingest.base import Source
-from vigil.ingest.certstream import CERTSTREAM_URL, CertStreamSource
+from vigil.ingest.certstream import CertStreamSource
 from vigil.ingest.fixtures import FixtureSource
 
 app = typer.Typer(add_completion=False)
@@ -38,48 +34,64 @@ def main() -> None:
 
 @app.command()
 def watch(
-    source: str = typer.Option("certstream", "--source", help="certstream|fixtures"),
-    certstream_url: str = typer.Option(
-        CERTSTREAM_URL,
+    config: Path = typer.Option(
+        DEFAULT_RUN_CONFIG_PATH, "--config", help="Path to the run config YAML file"
+    ),
+    source: str | None = typer.Option(None, "--source", help="certstream|fixtures"),
+    certstream_url: str | None = typer.Option(
+        None,
         "--certstream-url",
         help="Websocket URL for --source certstream",
     ),
-    watchlist: Path = typer.Option(
-        DEFAULT_WATCHLIST_PATH, "--watchlist", help="Path to the watchlist YAML file"
+    watchlist: Path | None = typer.Option(
+        None, "--watchlist", help="Path to the watchlist YAML file"
     ),
-    rules_config: Path = typer.Option(
-        DEFAULT_RULES_CONFIG_PATH, "--rules-config", help="Path to the rule toggles YAML file"
+    rules_config: Path | None = typer.Option(
+        None, "--rules-config", help="Path to the rule toggles YAML file"
     ),
     output: Path | None = typer.Option(
         None,
         "--output",
         help="Output file for findings (JSONL). Unused until detection is implemented.",
     ),
-    fixtures_path: Path = typer.Option(
-        DEFAULT_FIXTURES_PATH,
+    fixtures_path: Path | None = typer.Option(
+        None,
         "--fixtures-path",
         help="Fixture JSONL file to replay when --source fixtures",
     ),
-    skip_wildcards: bool = typer.Option(
-        True,
+    skip_wildcards: bool | None = typer.Option(
+        None,
         "--skip-wildcards/--no-skip-wildcards",
         help="Drop wildcard SANs from ingested certificates",
     ),
-    detection: bool = typer.Option(
-        False,
+    detection: bool | None = typer.Option(
+        None,
         "--detection/--no-detection",
         help="Run detection modules and print only detections (morphological, referential)",
     ),
-    metrics: bool = typer.Option(
-        False,
+    metrics: bool | None = typer.Option(
+        None,
         "--metrics/--no-metrics",
         help="Print live throughput/timing metrics to stderr; hides individual detections",
     ),
-    metrics_interval: float = typer.Option(
-        DEFAULT_METRICS_INTERVAL, "--metrics-interval", help="Seconds between metrics snapshots"
+    metrics_interval: float | None = typer.Option(
+        None, "--metrics-interval", help="Seconds between metrics snapshots"
     ),
 ) -> None:
     """Stream certificates from SOURCE and display them."""
+    run_config = load_run_config(config)
+    source = source if source is not None else run_config.source
+    certstream_url = certstream_url if certstream_url is not None else run_config.certstream_url
+    watchlist = watchlist if watchlist is not None else run_config.watchlist
+    rules_config = rules_config if rules_config is not None else run_config.rules_config
+    fixtures_path = fixtures_path if fixtures_path is not None else run_config.fixtures_path
+    skip_wildcards = skip_wildcards if skip_wildcards is not None else run_config.skip_wildcards
+    detection = detection if detection is not None else run_config.detection
+    metrics = metrics if metrics is not None else run_config.metrics
+    metrics_interval = (
+        metrics_interval if metrics_interval is not None else run_config.metrics_interval
+    )
+
     if not watchlist.exists():
         logger.warning("watchlist file not found: %s (continuing without it)", watchlist)
 
