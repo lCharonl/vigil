@@ -34,6 +34,7 @@ class DetectionMetrics:
     per_cert_min: float = math.inf
     per_cert_max: float = 0.0
     by_rule: Counter[str] = field(default_factory=Counter)
+    by_family: Counter[str] = field(default_factory=Counter)
     # rolling marks for the last-interval rate
     _mark_time: float = field(default_factory=time.monotonic)
     _mark_domains: int = 0
@@ -54,6 +55,7 @@ class DetectionMetrics:
         for _domain, reasons in detections:
             for reason in reasons:
                 self.by_rule[reason.rule] += 1
+                self.by_family[reason.family] += 1
                 self.detections += 1
 
     def snapshot(self, now: float | None = None) -> str:
@@ -84,6 +86,10 @@ class DetectionMetrics:
             f"detections:  {self.detections}   "
             f"({60 * _per_second(self.detections, elapsed):.1f}/min, {det_rate:.2f}% of domains)"
         )
+        lines.append("by family:")
+        for family, count in self.by_family.most_common():
+            pct = 100 * count / self.detections if self.detections else 0.0
+            lines.append(f"  {family:<14} {count:>7}   ({pct:5.1f}%)")
         lines.append("by rule:")
         for rule, count in self.by_rule.most_common():
             pct = 100 * count / self.detections if self.detections else 0.0

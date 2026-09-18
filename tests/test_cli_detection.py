@@ -9,6 +9,10 @@ from vigil.cli import app
 
 runner = CliRunner()
 
+# isolates tests from the repo's real data/config.yml, which the user tunes
+# for their own live runs (see tests/test_run_config.py for the loader itself)
+_NO_CONFIG = ["--config", "/nonexistent/vigil-test-config.yml"]
+
 
 def _write_fixture(path: Path, domains_per_cert: list[list[str]]) -> None:
     """Write a minimal certstream JSONL fixture, one cert per domain list."""
@@ -61,14 +65,14 @@ def _all_output(result) -> str:
 
 
 def test_default_view_prints_certs_not_detections():
-    result = runner.invoke(app, ["watch", "--source", "fixtures"])
+    result = runner.invoke(app, ["watch", "--source", "fixtures", *_NO_CONFIG])
     assert result.exit_code == 0
     assert "domains=[" in result.stdout
     assert "DETECT" not in result.stdout
 
 
 def test_detection_view_prints_only_detections():
-    result = runner.invoke(app, ["watch", "--source", "fixtures", "--detection"])
+    result = runner.invoke(app, ["watch", "--source", "fixtures", "--detection", *_NO_CONFIG])
     assert result.exit_code == 0
     assert "domains=[" not in result.stdout
     for line in result.stdout.splitlines():
@@ -79,7 +83,8 @@ def test_detection_view_prints_only_detections():
 def test_detection_with_all_rules_enabled(tmp_path):
     fixture = _detection_fixture(tmp_path)
     result = runner.invoke(
-        app, ["watch", "--source", "fixtures", "--fixtures-path", str(fixture), "--detection"]
+        app,
+        ["watch", "--source", "fixtures", "--fixtures-path", str(fixture), "--detection", *_NO_CONFIG],
     )
     assert result.exit_code == 0
     assert "rules=R-01,L-04,M-01" in result.stdout
@@ -101,6 +106,7 @@ def test_rules_config_restricts_detections(tmp_path):
             "--detection",
             "--rules-config",
             str(rules_config),
+            *_NO_CONFIG,
         ],
     )
     assert result.exit_code == 0
@@ -123,6 +129,7 @@ def test_rules_config_missing_file_enables_everything(tmp_path):
             "--detection",
             "--rules-config",
             str(tmp_path / "missing.yml"),
+            *_NO_CONFIG,
         ],
     )
     assert result.exit_code == 0
@@ -171,7 +178,7 @@ detection: true
 
 def test_watch_metrics_flag_emits_block():
     result = runner.invoke(
-        app, ["watch", "--source", "fixtures", "--detection", "--metrics"]
+        app, ["watch", "--source", "fixtures", "--detection", "--metrics", *_NO_CONFIG]
     )
     assert result.exit_code == 0
     output = _all_output(result)
@@ -182,7 +189,7 @@ def test_watch_metrics_flag_emits_block():
 
 def test_watch_metrics_suppresses_detections():
     result = runner.invoke(
-        app, ["watch", "--source", "fixtures", "--detection", "--metrics"]
+        app, ["watch", "--source", "fixtures", "--detection", "--metrics", *_NO_CONFIG]
     )
     assert result.exit_code == 0
     assert "DETECT" not in result.stdout
@@ -190,7 +197,7 @@ def test_watch_metrics_suppresses_detections():
 
 
 def test_watch_without_metrics_flag_emits_no_block():
-    result = runner.invoke(app, ["watch", "--source", "fixtures", "--detection"])
+    result = runner.invoke(app, ["watch", "--source", "fixtures", "--detection", *_NO_CONFIG])
     assert result.exit_code == 0
     assert "detection metrics" not in _all_output(result)
 
@@ -215,6 +222,7 @@ def test_watch_watchlist_path_is_used(monkeypatch, tmp_path):
             "--detection",
             "--watchlist",
             str(custom_watchlist),
+            *_NO_CONFIG,
         ],
     )
     assert result.exit_code == 0
@@ -233,6 +241,7 @@ def test_skip_wildcards_false_keeps_wildcard_domain(tmp_path):
             "--fixtures-path",
             str(path),
             "--no-skip-wildcards",
+            *_NO_CONFIG,
         ],
     )
     assert result.exit_code == 0
@@ -243,7 +252,7 @@ def test_skip_wildcards_true_drops_wildcard_only_cert(tmp_path):
     path = tmp_path / "certs.jsonl"
     _write_fixture(path, [["*.example.com"]])
     result = runner.invoke(
-        app, ["watch", "--source", "fixtures", "--fixtures-path", str(path)]
+        app, ["watch", "--source", "fixtures", "--fixtures-path", str(path), *_NO_CONFIG]
     )
     assert result.exit_code == 0
     assert "*.example.com" not in result.stdout

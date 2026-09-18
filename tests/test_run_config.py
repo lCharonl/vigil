@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from vigil.cli.defaults import DEFAULT_FIXTURES_PATH, DEFAULT_METRICS_INTERVAL, DEFAULT_WATCHLIST_PATH
-from vigil.cli.run_config import DEFAULT_RUN_CONFIG_PATH, RunConfig, load_run_config
+from vigil.cli.run_config import RunConfig, load_run_config
 from vigil.detect.data.rules_config import DEFAULT_RULES_CONFIG_PATH
 from vigil.ingest.certstream import CERTSTREAM_URL
 
@@ -60,8 +60,3 @@ metrics_interval: 3.0
         metrics=True,
         metrics_interval=3.0,
     )
-
-
-def test_default_config_file_matches_hardcoded_defaults():
-    """data/config.yml as committed must be a no-op vs. the hardcoded defaults."""
-    assert load_run_config(DEFAULT_RUN_CONFIG_PATH) == RunConfig()
