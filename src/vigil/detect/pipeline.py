@@ -1,6 +1,7 @@
 """Detection orchestration: runs the implemented families over a CertEvent."""
 
 from vigil.detect.data.watchlist import is_allowlisted
+from vigil.detect.families.lexical import evaluate_lexical
 from vigil.detect.families.morphological import evaluate_morphological
 from vigil.detect.families.referential import evaluate_referential
 from vigil.detect.registry import RULE_FAMILY, Family, Rule
@@ -8,7 +9,11 @@ from vigil.detect.techniques.names import DomainName, parse_domain
 from vigil.models import CertEvent, Reason
 
 # families with a working evaluator
-IMPLEMENTED_FAMILIES: tuple[Family, ...] = (Family.MORPHOLOGICAL, Family.REFERENTIAL)
+IMPLEMENTED_FAMILIES: tuple[Family, ...] = (
+    Family.MORPHOLOGICAL,
+    Family.REFERENTIAL,
+    Family.LEXICAL,
+)
 
 
 def _other_family_enabled(rules: frozenset[Rule] | None) -> bool:
@@ -35,8 +40,11 @@ def evaluate_domain(
     reasons: list[Reason] = []
     morphological = evaluate_morphological(name, digit_exceptions, rules)
     referential = evaluate_referential(name, watched, terms, rules)
+    lexical = evaluate_lexical(name, terms, rules)
     if referential is not None:
         reasons.append(referential)
+    if lexical is not None:
+        reasons.append(lexical)
     if morphological is not None and (reasons or not _other_family_enabled(rules)):
         reasons.append(morphological)
     return reasons
