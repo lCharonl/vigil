@@ -114,7 +114,7 @@ def test_menu_with_detection_all_rules(monkeypatch, tmp_path):
     result = runner.invoke(app, [])
     assert result.exit_code == 0
     assert "domains=[" not in result.stdout
-    assert "rules=R-01,M-01" in result.stdout
+    assert "rules=R-01,L-04,M-01" in result.stdout
     assert "rules=R-01,M-03" in result.stdout
 
 
