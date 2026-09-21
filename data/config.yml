@@ -6,5 +6,5 @@ watchlist: data/watchlist.yml
 rules_config: data/rules.yml
 skip_wildcards: true
 detection: true
-metrics: true
+metrics: false
 metrics_interval: 2.0
