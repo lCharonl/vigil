@@ -51,17 +51,17 @@ def brand_typo_distance(
 ) -> bool:
     """R-03: registrable core within edit distance of a watched brand, excluding exact matches."""
     core = _registrable_core(name)
-    if(len(core)>3):
-        if core in watched:
-            return False
-        for brand in watched:
-            if abs(len(core) - len(brand)) > max_distance:
-                continue
-            distance = bounded_levenshtein(core, brand, max_distance)
-            if distance:
-                return True
+    if len(core) <= 3:
         return False
-    
+    if core in watched:
+        return False
+    for brand in watched:
+        if abs(len(core) - len(brand)) > max_distance:
+            continue
+        distance = bounded_levenshtein(core, brand, max_distance)
+        if distance:
+            return True
+    return False
 
 
 def brand_adjacent_to_auth_term(
