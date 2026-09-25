@@ -1,1 +1,1 @@
-FIX R-03/M-03 -> too much FP
+Entropie de Shannon ?

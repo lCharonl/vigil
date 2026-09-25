@@ -54,6 +54,19 @@ def test_r03_exact_match_not_flagged():
     assert not brand_typo_distance(parse_domain("microsoft.com"), MICROSOFT)
 
 
+def test_r03_short_brand_uses_tighter_distance():
+    # "axa" (3 chars) at distance 2 from unrelated words is pure coincidence;
+    # the short-brand budget of 1 must reject them.
+    axa = frozenset({"axa"})
+    assert not brand_typo_distance(parse_domain("data.com"), axa)
+    assert not brand_typo_distance(parse_domain("meta.com"), axa)
+
+
+def test_r03_short_brand_still_catches_single_edit_typo():
+    axa = frozenset({"axa"})
+    assert brand_typo_distance(parse_domain("axaa.com"), axa)  # single insertion, distance 1
+
+
 def test_r04_brand_adjacent_to_auth_term():
     name = parse_domain("paypal-login.net")
     assert brand_adjacent_to_auth_term(name, PAYPAL, AUTH_TERMS)

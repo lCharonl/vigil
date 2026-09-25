@@ -55,14 +55,19 @@ implementation order:
 | Lexical | a dictionary | once term lists exist |
 | Encoding | nothing | immediately |
 | Morphological | nothing | immediately |
-| Statistical | a corpus baseline | only after traffic is observed |
-| Certificate metadata | the cert object | immediately |
 
 Encoding and morphological rules are pure `str → bool` functions. They are
 testable with no fixtures, no network and no configuration — start there.
 
 Each family maps to one module in `src/vigil/detect/families/` (`referential`,
-`lexical`, `encoding`, `morphological`, `statistical`, `certificate`).
+`lexical`, `encoding`, `morphological`).
+
+> Removed: the statistical family (required a corpus baseline that was never
+> built) and the certificate-metadata family (SAN-count check, context-only
+> signal) were dropped along with their stub modules, rule IDs and `rules.yml`
+> toggles. Reintroduce them under new rule identifiers if the need resurfaces —
+> don't reuse the removed ones, since they'd carry the assumptions of this
+> removal.
 
 ### One rule per family
 
@@ -145,33 +150,6 @@ these two live in different families and are never conflated.
 Every rule here is weak alone. They exist to reinforce domains that already
 matched elsewhere. One hyphen is unremarkable. `365` is legitimate Microsoft
 branding — M-04 must not fire on it.
-
-### Statistical — requires a corpus baseline
-
-Not implementable until enough traffic has been observed. These rules are stubs
-that never match until a baseline exists.
-
-| ID | Rule | Example |
-|---|---|---|
-| S-01 | Readable word combined with a random-looking string | `paypal-x8k2za.com` |
-| S-02 | High Shannon entropy across the label | `xj3kq9azp.com` |
-| S-03 | TLD statistically over-represented in observed abuse | computed, never a static list |
-
-S-01 precedes S-02 because pure randomness is dominated by CDN and cloud
-infrastructure, while word-plus-noise is characteristic of generated phishing
-infrastructure.
-
-S-03 is derived from Vigil's own observations. A hardcoded "bad TLD" list ages
-badly and encodes someone else's threat model.
-
-### Certificate metadata
-
-| ID | Rule | Example |
-|---|---|---|
-| C-01 | SAN count above the shared-hosting threshold | 200-domain certificate |
-
-Present for context rather than detection. CDNs and shared hosts trigger it
-constantly.
 
 ---
 

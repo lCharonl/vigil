@@ -44,21 +44,35 @@ def brand_followed_by_tld_token(
     )
 
 
+def _max_distance_for(
+    brand: str,
+    max_distance: int,
+    short_brand_length: int,
+    short_brand_max_distance: int,
+) -> int:
+    """Short brands get a tighter edit budget: 2 is nearly the whole word for e.g. 'axa'."""
+    return short_brand_max_distance if len(brand) <= short_brand_length else max_distance
+
+
 def brand_typo_distance(
     name: DomainName,
     watched: frozenset[str] = frozenset(),
     max_distance: int = thresholds.LEVENSHTEIN_MAX_DISTANCE,
+    min_core_length: int = thresholds.LEVENSHTEIN_MIN_CORE_LENGTH,
+    short_brand_length: int = thresholds.LEVENSHTEIN_SHORT_BRAND_LENGTH,
+    short_brand_max_distance: int = thresholds.LEVENSHTEIN_SHORT_BRAND_MAX_DISTANCE,
 ) -> bool:
     """R-03: registrable core within edit distance of a watched brand, excluding exact matches."""
     core = _registrable_core(name)
-    if len(core) <= 3:
+    if len(core) <= min_core_length:
         return False
     if core in watched:
         return False
     for brand in watched:
-        if abs(len(core) - len(brand)) > max_distance:
+        limit = _max_distance_for(brand, max_distance, short_brand_length, short_brand_max_distance)
+        if abs(len(core) - len(brand)) > limit:
             continue
-        distance = bounded_levenshtein(core, brand, max_distance)
+        distance = bounded_levenshtein(core, brand, limit)
         if distance:
             return True
     return False
