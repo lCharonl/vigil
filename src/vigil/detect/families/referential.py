@@ -48,10 +48,11 @@ def brand_typo_distance(
     name: DomainName,
     watched: frozenset[str] = frozenset(),
     max_distance: int = thresholds.LEVENSHTEIN_MAX_DISTANCE,
+    min_core_length: int = thresholds.LEVENSHTEIN_MIN_CORE_LENGTH,
 ) -> bool:
     """R-03: registrable core within edit distance of a watched brand, excluding exact matches."""
     core = _registrable_core(name)
-    if len(core) <= 3:
+    if len(core) <= min_core_length:
         return False
     if core in watched:
         return False

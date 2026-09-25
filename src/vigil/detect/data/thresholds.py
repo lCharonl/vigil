@@ -3,6 +3,9 @@
 # R-03: max Levenshtein distance from a watched brand
 LEVENSHTEIN_MAX_DISTANCE: int = 2
 
+# R-03: registrable core length below which typo distance is not evaluated
+LEVENSHTEIN_MIN_CORE_LENGTH: int = 3
+
 # M-01: minimum hyphen count
 MIN_HYPHENS: int = 3
 
