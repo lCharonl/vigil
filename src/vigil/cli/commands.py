@@ -55,7 +55,7 @@ def watch(
     output: Path | None = typer.Option(
         None,
         "--output",
-        help="Output file for findings (JSONL). Unused until detection is implemented.",
+        help="Output file for results (JSONL, appended). Defaults to stdout.",
     ),
     fixtures_path: Path | None = typer.Option(
         None,
@@ -88,6 +88,7 @@ def watch(
     watchlist = watchlist if watchlist is not None else run_config.watchlist
     rules_config = rules_config if rules_config is not None else run_config.rules_config
     fixtures_path = fixtures_path if fixtures_path is not None else run_config.fixtures_path
+    output = output if output is not None else run_config.output
     skip_wildcards = skip_wildcards if skip_wildcards is not None else run_config.skip_wildcards
     detection = detection if detection is not None else run_config.detection
     metrics = metrics if metrics is not None else run_config.metrics
@@ -102,9 +103,7 @@ def watch(
         logger.warning("--metrics has no effect without --detection")
 
     if output is not None:
-        logger.info(
-            "findings output configured at %s (unused: detection is not implemented yet)", output
-        )
+        logger.info("writing results to %s", output)
 
     src: Source
     if source == "certstream":
@@ -137,6 +136,7 @@ def watch(
         metrics=metrics,
         metrics_interval=metrics_interval,
         allowlist=allowlist,
+        output=output,
     )
 
 

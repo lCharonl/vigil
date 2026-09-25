@@ -22,6 +22,7 @@ class RunConfig(BaseModel):
     fixtures_path: Path = DEFAULT_FIXTURES_PATH
     watchlist: Path = DEFAULT_WATCHLIST_PATH
     rules_config: Path = DEFAULT_RULES_CONFIG_PATH
+    output: Path | None = None
     skip_wildcards: bool = True
     detection: bool = False
     metrics: bool = False

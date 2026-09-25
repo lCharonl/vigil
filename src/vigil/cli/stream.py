@@ -2,13 +2,13 @@
 
 import asyncio
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
-from rich.text import Text
 
 from vigil.cli.defaults import DEFAULT_METRICS_INTERVAL
 from vigil.detect.data.shared_hosting import load_shared_hosting_suffixes
@@ -19,6 +19,7 @@ from vigil.detect.pipeline import detect_event
 from vigil.detect.registry import Rule
 from vigil.ingest.base import Source
 from vigil.ingest.filters import strip_wildcards
+from vigil.output.jsonl import JSONLWriter
 from vigil.reporting.metrics import DetectionMetrics
 
 
@@ -60,13 +61,14 @@ def _run_stream(
     metrics: bool = False,
     metrics_interval: float = DEFAULT_METRICS_INTERVAL,
     allowlist: frozenset[str] = frozenset(),
+    output: Path | None = None,
 ) -> None:
-    """Drive the ingestion loop, printing certs or detections."""
+    """Drive the ingestion loop, writing certs or detections as JSONL."""
 
     async def run() -> None:
         count = 0
         stats = DetectionMetrics() if (detection and metrics) else None
-        out_console = Console()
+        writer = JSONLWriter(output)
         err_console = Console(stderr=True)
         # one in-place panel on a real terminal, plain reprints otherwise
         live = (
@@ -107,38 +109,27 @@ def _run_stream(
                     else:
                         for domain, reasons in results:
                             count += 1
-                            families = ",".join(dict.fromkeys(r.family for r in reasons))
-                            matched = ",".join(r.rule for r in reasons)
-                            out_console.print(
-                                Text.assemble(
-                                    (f"[{count}] ", "dim"),
-                                    ("DETECT ", "bold red"),
-                                    ("source=", "dim"),
-                                    (f"{cert.source} ", "white"),
-                                    ("serial=", "dim"),
-                                    (f"{cert.serial_number} ", "white"),
-                                    ("domain=", "dim"),
-                                    (f"{domain} ", "bold yellow"),
-                                    ("families=", "dim"),
-                                    (f"{families} ", "cyan"),
-                                    ("rules=", "dim"),
-                                    (matched, "magenta"),
-                                ),
-                                soft_wrap=True,
+                            families = list(dict.fromkeys(r.family for r in reasons))
+                            rule_ids = [r.rule for r in reasons]
+                            writer.write(
+                                {
+                                    "detected_at": datetime.now(UTC).isoformat(),
+                                    "source": cert.source,
+                                    "serial_number": cert.serial_number,
+                                    "domain": domain,
+                                    "families": families,
+                                    "rules": rule_ids,
+                                }
                             )
                 else:
                     count += 1
-                    out_console.print(
-                        Text.assemble(
-                            (f"[{count}] ", "dim"),
-                            ("source=", "dim"),
-                            (f"{cert.source} ", "white"),
-                            ("serial=", "dim"),
-                            (f"{cert.serial_number} ", "white"),
-                            ("domains=", "dim"),
-                            (str(cert.domains), "dim"),
-                        ),
-                        soft_wrap=True,
+                    writer.write(
+                        {
+                            "detected_at": datetime.now(UTC).isoformat(),
+                            "source": cert.source,
+                            "serial_number": cert.serial_number,
+                            "domains": cert.domains,
+                        }
                     )
                 if stats is not None and time.monotonic() >= next_report:
                     report()
@@ -148,6 +139,7 @@ def _run_stream(
         finally:
             if live is not None:
                 live.stop()
+            writer.close()
         unit = "detection(s)" if detection else "certificate(s) processed"
         err_console.print(f"done: {count} {unit}", style="bold green", highlight=False)
 

@@ -27,14 +27,48 @@ vigil watch --source fixtures --detection
 Streams live CertStream by default (`--source certstream`). `fixtures`
 replays a local JSONL file instead — good for testing.
 
+Results (detections, or raw certs without `--detection`) are written as
+JSON Lines, one object per line, flushed immediately. By default they go to
+stdout; pass `--output FILE` to append them to a file instead — handy for a
+separate script to tail the file live (see `scripts/tail_results.py`).
+
 Useful flags:
 
-- `--detection` — run detection rules, print only matches.
+- `--detection` — run detection rules, emit only matches.
 - `--rules-config data/rules.yml` — enable/disable individual rules.
 - `--watchlist data/watchlist.yml` — brands to monitor.
-- `--metrics` — print throughput stats instead of individual detections.
+- `--output FILE` — append results as JSONL to FILE instead of stdout.
+- `--metrics` — print throughput stats to stderr instead of individual results.
 
 Run `vigil watch --help` for the full list.
+
+## Docker
+
+Runs `vigil watch` in a container, replaying the bundled fixtures by
+default (no external certstream server needed) and writing results as
+JSONL to a bind-mounted host directory.
+
+```bash
+docker compose up --build
+```
+
+Results land in `./data/output/results.jsonl` on the host, one JSON
+object per line, flushed as soon as it's written. Watch them live,
+colorized, from the host:
+
+```bash
+python3 scripts/tail_results.py data/output/results.jsonl
+```
+
+To point at a real certstream server instead of the bundled fixtures:
+
+```bash
+VIGIL_SOURCE=certstream VIGIL_CERTSTREAM_URL=ws://host.docker.internal:8080/ \
+    docker compose up --build
+```
+
+(`host.docker.internal` reaches a certstream-server-rust instance
+running on the host; adjust for your own setup.)
 
 ## Detection rules
 

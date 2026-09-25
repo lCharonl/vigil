@@ -1,0 +1,14 @@
+services:
+  vigil:
+    build: .
+    volumes:
+      - ./data/output:/data/output
+    command:
+      - watch
+      - --source
+      - ${VIGIL_SOURCE:-certstream}
+      - --certstream-url
+      - ${VIGIL_CERTSTREAM_URL:-ws://127.0.0.1:8080/}
+      - --detection
+      - --output
+      - /data/output/results.jsonl

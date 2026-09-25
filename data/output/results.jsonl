@@ -1,0 +1,6 @@
+{"detected_at": "2026-09-25T09:53:46.755139+00:00", "source": "Cloudflare 'Nimbus2026' Log", "serial_number": "05C3D4E5F60718293A4B5C6D7E8F9012345", "domain": "xn--80ak6aa92e.com", "families": ["encoding"], "rules": ["E-02"]}
+{"detected_at": "2026-09-25T09:53:46.893111+00:00", "source": "Google 'Xenon2026' log", "serial_number": "07E5F60718293A4B5C6D7E8F901234567", "domain": "exemplebank-secure-login.com", "families": ["lexical"], "rules": ["L-04"]}
+{"detected_at": "2026-09-25T09:53:46.893178+00:00", "source": "Google 'Xenon2026' log", "serial_number": "07E5F60718293A4B5C6D7E8F901234567", "domain": "www.exemplebank-secure-login.com", "families": ["lexical"], "rules": ["L-04"]}
+{"detected_at": "2026-09-25T09:55:01.347583+00:00", "source": "Cloudflare 'Nimbus2026' Log", "serial_number": "05C3D4E5F60718293A4B5C6D7E8F9012345", "domain": "xn--80ak6aa92e.com", "families": ["encoding"], "rules": ["E-02"]}
+{"detected_at": "2026-09-25T09:55:01.473363+00:00", "source": "Google 'Xenon2026' log", "serial_number": "07E5F60718293A4B5C6D7E8F901234567", "domain": "exemplebank-secure-login.com", "families": ["lexical"], "rules": ["L-04"]}
+{"detected_at": "2026-09-25T09:55:01.473431+00:00", "source": "Google 'Xenon2026' log", "serial_number": "07E5F60718293A4B5C6D7E8F901234567", "domain": "www.exemplebank-secure-login.com", "families": ["lexical"], "rules": ["L-04"]}
