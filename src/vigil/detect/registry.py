@@ -8,8 +8,6 @@ class Family(StrEnum):
     LEXICAL = "lexical"
     ENCODING = "encoding"
     MORPHOLOGICAL = "morphological"
-    STATISTICAL = "statistical"
-    CERTIFICATE_METADATA = "certificate_metadata"
 
 
 class Rule(StrEnum):
@@ -27,10 +25,6 @@ class Rule(StrEnum):
     M_02 = "M-02"
     M_03 = "M-03"
     M_04 = "M-04"
-    S_01 = "S-01"
-    S_02 = "S-02"
-    S_03 = "S-03"
-    C_01 = "C-01"
 
 
 # family per rule, in evaluation order (decreasing specificity within a family)
@@ -49,8 +43,4 @@ RULE_FAMILY: dict[Rule, Family] = {
     Rule.M_02: Family.MORPHOLOGICAL,
     Rule.M_03: Family.MORPHOLOGICAL,
     Rule.M_04: Family.MORPHOLOGICAL,
-    Rule.S_01: Family.STATISTICAL,
-    Rule.S_02: Family.STATISTICAL,
-    Rule.S_03: Family.STATISTICAL,
-    Rule.C_01: Family.CERTIFICATE_METADATA,
 }
