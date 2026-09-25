@@ -44,13 +44,18 @@ Run `vigil watch --help` for the full list.
 
 ## Docker
 
-Runs `vigil watch` in a container, replaying the bundled fixtures by
-default (no external certstream server needed) and writing results as
-JSONL to a bind-mounted host directory.
+Runs `vigil watch` in a container, writing results as JSONL to a
+bind-mounted host directory.
 
 ```bash
 docker compose up --build
 ```
+
+By default this connects to a certstream-server-rust instance running on
+the host, at `ws://host.docker.internal:8080/` (`extra_hosts` in
+`docker-compose.yml` makes `host.docker.internal` resolve on native Linux
+Docker too, not just Docker Desktop). Start your certstream-server-rust
+instance on the host first, then bring the container up.
 
 Results land in `./data/output/results.jsonl` on the host, one JSON
 object per line, flushed as soon as it's written. Watch them live,
@@ -60,15 +65,18 @@ colorized, from the host:
 python3 scripts/tail_results.py data/output/results.jsonl
 ```
 
-To point at a real certstream server instead of the bundled fixtures:
+No certstream server handy? Replay the bundled fixtures instead (no
+network dependency):
 
 ```bash
-VIGIL_SOURCE=certstream VIGIL_CERTSTREAM_URL=ws://host.docker.internal:8080/ \
-    docker compose up --build
+VIGIL_SOURCE=fixtures docker compose up --build
 ```
 
-(`host.docker.internal` reaches a certstream-server-rust instance
-running on the host; adjust for your own setup.)
+Or point at a certstream server elsewhere:
+
+```bash
+VIGIL_CERTSTREAM_URL=ws://some-other-host:8080/ docker compose up --build
+```
 
 ## Detection rules
 
