@@ -1,0 +1,9 @@
+# Known shared-hosting / PaaS suffixes.
+#
+# The Public Suffix List doesn't treat these as private suffixes, so PSL parsing
+# yields a "registrable core" that is platform plumbing (e.g. "data", "regional",
+# "unique" for Azure API Management), never a tenant's own brand. Every subdomain
+# under these suffixes is suppressed the same way as an allowlisted domain.
+suffixes:
+  - azure-api.net
+  - meraki.direct
