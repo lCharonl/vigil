@@ -8,8 +8,10 @@ import typer
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
+from rich.text import Text
 
 from vigil.cli.defaults import DEFAULT_METRICS_INTERVAL
+from vigil.detect.data.shared_hosting import load_shared_hosting_suffixes
 from vigil.detect.data.terms import DEFAULT_TERMS_PATH, load_terms
 from vigil.detect.data.watchlist import load_brand_names, load_legitimate_domains
 from vigil.detect.families.morphological import numeric_exceptions
@@ -35,10 +37,9 @@ def _load_watched_brands(watchlist: Path) -> frozenset[str]:
 
 
 def _load_allowlist(watchlist: Path) -> frozenset[str]:
-    """Known-legitimate domains that suppress all detections when matched."""
-    if not watchlist.exists():
-        return frozenset()
-    return frozenset(load_legitimate_domains(watchlist))
+    """Known-legitimate domains and shared-hosting suffixes that suppress detection."""
+    legit = frozenset(load_legitimate_domains(watchlist)) if watchlist.exists() else frozenset()
+    return legit | load_shared_hosting_suffixes()
 
 
 def _load_terms(path: Path = DEFAULT_TERMS_PATH) -> dict[Rule, frozenset[str]]:
@@ -65,6 +66,7 @@ def _run_stream(
     async def run() -> None:
         count = 0
         stats = DetectionMetrics() if (detection and metrics) else None
+        out_console = Console()
         err_console = Console(stderr=True)
         # one in-place panel on a real terminal, plain reprints otherwise
         live = (
@@ -107,16 +109,36 @@ def _run_stream(
                             count += 1
                             families = ",".join(dict.fromkeys(r.family for r in reasons))
                             matched = ",".join(r.rule for r in reasons)
-                            typer.echo(
-                                f"[{count}] DETECT source={cert.source} "
-                                f"serial={cert.serial_number} domain={domain} "
-                                f"families={families} rules={matched}"
+                            out_console.print(
+                                Text.assemble(
+                                    (f"[{count}] ", "dim"),
+                                    ("DETECT ", "bold red"),
+                                    ("source=", "dim"),
+                                    (f"{cert.source} ", "white"),
+                                    ("serial=", "dim"),
+                                    (f"{cert.serial_number} ", "white"),
+                                    ("domain=", "dim"),
+                                    (f"{domain} ", "bold yellow"),
+                                    ("families=", "dim"),
+                                    (f"{families} ", "cyan"),
+                                    ("rules=", "dim"),
+                                    (matched, "magenta"),
+                                ),
+                                soft_wrap=True,
                             )
                 else:
                     count += 1
-                    typer.echo(
-                        f"[{count}] source={cert.source} serial={cert.serial_number} "
-                        f"domains={cert.domains}"
+                    out_console.print(
+                        Text.assemble(
+                            (f"[{count}] ", "dim"),
+                            ("source=", "dim"),
+                            (f"{cert.source} ", "white"),
+                            ("serial=", "dim"),
+                            (f"{cert.serial_number} ", "white"),
+                            ("domains=", "dim"),
+                            (str(cert.domains), "dim"),
+                        ),
+                        soft_wrap=True,
                     )
                 if stats is not None and time.monotonic() >= next_report:
                     report()
@@ -127,7 +149,7 @@ def _run_stream(
             if live is not None:
                 live.stop()
         unit = "detection(s)" if detection else "certificate(s) processed"
-        typer.echo(f"done: {count} {unit}", err=True)
+        err_console.print(f"done: {count} {unit}", style="bold green", highlight=False)
 
     try:
         asyncio.run(run())

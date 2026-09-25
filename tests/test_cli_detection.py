@@ -1,6 +1,7 @@
 """CLI tests for the --detection flag and rule-toggle config."""
 
 import json
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -8,6 +9,13 @@ from typer.testing import CliRunner
 from vigil.cli import app
 
 runner = CliRunner()
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    """Drop rich's color codes so tests can assert on plain text."""
+    return _ANSI_RE.sub("", text)
 
 # isolates tests from the repo's real data/config.yml, which the user tunes
 # for their own live runs (see tests/test_run_config.py for the loader itself)
@@ -59,23 +67,29 @@ def _write_rules_config(tmp_path: Path, enabled: dict[str, bool]) -> Path:
 def _all_output(result) -> str:
     """stdout plus stderr, whichever the runner captured separately."""
     try:
-        return result.stdout + result.stderr
+        combined = result.stdout + result.stderr
     except (ValueError, AttributeError):
-        return result.stdout
+        combined = result.stdout
+    return _strip_ansi(combined)
+
+
+def _stdout(result) -> str:
+    """stdout with rich's color codes stripped."""
+    return _strip_ansi(result.stdout)
 
 
 def test_default_view_prints_certs_not_detections():
     result = runner.invoke(app, ["watch", "--source", "fixtures", *_NO_CONFIG])
     assert result.exit_code == 0
-    assert "domains=[" in result.stdout
-    assert "DETECT" not in result.stdout
+    assert "domains=[" in _stdout(result)
+    assert "DETECT" not in _stdout(result)
 
 
 def test_detection_view_prints_only_detections():
     result = runner.invoke(app, ["watch", "--source", "fixtures", "--detection", *_NO_CONFIG])
     assert result.exit_code == 0
-    assert "domains=[" not in result.stdout
-    for line in result.stdout.splitlines():
+    assert "domains=[" not in _stdout(result)
+    for line in _stdout(result).splitlines():
         if line.startswith("["):
             assert "DETECT" in line
 
@@ -87,8 +101,8 @@ def test_detection_with_all_rules_enabled(tmp_path):
         ["watch", "--source", "fixtures", "--fixtures-path", str(fixture), "--detection", *_NO_CONFIG],
     )
     assert result.exit_code == 0
-    assert "rules=R-01,L-04,M-01" in result.stdout
-    assert "rules=R-01,M-03" in result.stdout
+    assert "rules=R-01,L-04,M-01" in _stdout(result)
+    assert "rules=R-01,M-03" in _stdout(result)
 
 
 def test_rules_config_restricts_detections(tmp_path):
@@ -110,7 +124,7 @@ def test_rules_config_restricts_detections(tmp_path):
         ],
     )
     assert result.exit_code == 0
-    detect_lines = [line for line in result.stdout.splitlines() if "DETECT" in line]
+    detect_lines = [line for line in _stdout(result).splitlines() if "DETECT" in line]
     # both fixture domains have 4+ labels, so both match M-03; nothing else is enabled
     assert len(detect_lines) == 2
     assert all("rules=M-03" in line for line in detect_lines)
@@ -133,7 +147,7 @@ def test_rules_config_missing_file_enables_everything(tmp_path):
         ],
     )
     assert result.exit_code == 0
-    assert "rules=R-01,L-04,M-01" in result.stdout
+    assert "rules=R-01,L-04,M-01" in _stdout(result)
 
 
 def test_config_file_drives_detection_and_metrics_without_flags(tmp_path):
@@ -152,7 +166,7 @@ metrics_interval: 2.5
     result = runner.invoke(app, ["watch", "--config", str(config_path)])
     assert result.exit_code == 0
     # metrics=true hides individual DETECT lines, so check the metrics block instead
-    assert "DETECT" not in result.stdout
+    assert "DETECT" not in _stdout(result)
     assert "detection metrics" in _all_output(result)
     assert "analysis/domain" in _all_output(result)
 
@@ -172,8 +186,8 @@ detection: true
         app, ["watch", "--config", str(config_path), "--no-detection"]
     )
     assert result.exit_code == 0
-    assert "DETECT" not in result.stdout
-    assert "domains=[" in result.stdout
+    assert "DETECT" not in _stdout(result)
+    assert "domains=[" in _stdout(result)
 
 
 def test_watch_metrics_flag_emits_block():
@@ -184,7 +198,7 @@ def test_watch_metrics_flag_emits_block():
     output = _all_output(result)
     assert "detection metrics" in output
     assert "analysis/domain" in output
-    assert "detection metrics" not in result.stdout  # metrics stay off stdout
+    assert "detection metrics" not in _stdout(result)  # metrics stay off stdout
 
 
 def test_watch_metrics_suppresses_detections():
@@ -192,7 +206,7 @@ def test_watch_metrics_suppresses_detections():
         app, ["watch", "--source", "fixtures", "--detection", "--metrics", *_NO_CONFIG]
     )
     assert result.exit_code == 0
-    assert "DETECT" not in result.stdout
+    assert "DETECT" not in _stdout(result)
     assert "detection metrics" in _all_output(result)
 
 
@@ -245,7 +259,19 @@ def test_skip_wildcards_false_keeps_wildcard_domain(tmp_path):
         ],
     )
     assert result.exit_code == 0
-    assert "*.example.com" in result.stdout
+    assert "*.example.com" in _stdout(result)
+
+
+def test_shared_hosting_suffix_suppresses_detection(tmp_path):
+    # would otherwise fire R-01 (chase in subdomain, "data" as registrable core)
+    path = tmp_path / "certs.jsonl"
+    _write_fixture(path, [["chase.secure-login.data.azure-api.net"]])
+    result = runner.invoke(
+        app,
+        ["watch", "--source", "fixtures", "--fixtures-path", str(path), "--detection", *_NO_CONFIG],
+    )
+    assert result.exit_code == 0
+    assert "DETECT" not in _stdout(result)
 
 
 def test_skip_wildcards_true_drops_wildcard_only_cert(tmp_path):
@@ -255,4 +281,4 @@ def test_skip_wildcards_true_drops_wildcard_only_cert(tmp_path):
         app, ["watch", "--source", "fixtures", "--fixtures-path", str(path), *_NO_CONFIG]
     )
     assert result.exit_code == 0
-    assert "*.example.com" not in result.stdout
+    assert "*.example.com" not in _stdout(result)

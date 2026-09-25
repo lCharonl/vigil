@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 import typer
+from rich.logging import RichHandler
 
 from vigil.cli.run_config import DEFAULT_RUN_CONFIG_PATH, load_run_config
 from vigil.cli.stream import (
@@ -28,7 +29,9 @@ logger = logging.getLogger("vigil")
 def main() -> None:
     """Vigil: phishing-infrastructure detection from Certificate Transparency logs."""
     logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+        level=logging.INFO,
+        format="%(name)s: %(message)s",
+        handlers=[RichHandler(show_path=False, rich_tracebacks=True)],
     )
 
 
