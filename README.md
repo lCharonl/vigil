@@ -27,14 +27,56 @@ vigil watch --source fixtures --detection
 Streams live CertStream by default (`--source certstream`). `fixtures`
 replays a local JSONL file instead — good for testing.
 
+Results (detections, or raw certs without `--detection`) are written as
+JSON Lines, one object per line, flushed immediately. By default they go to
+stdout; pass `--output FILE` to append them to a file instead — handy for a
+separate script to tail the file live (see `scripts/tail_results.py`).
+
 Useful flags:
 
-- `--detection` — run detection rules, print only matches.
+- `--detection` — run detection rules, emit only matches.
 - `--rules-config data/rules.yml` — enable/disable individual rules.
 - `--watchlist data/watchlist.yml` — brands to monitor.
-- `--metrics` — print throughput stats instead of individual detections.
+- `--output FILE` — append results as JSONL to FILE instead of stdout.
+- `--metrics` — print throughput stats to stderr instead of individual results.
 
 Run `vigil watch --help` for the full list.
+
+## Docker
+
+Runs `vigil watch` in a container, writing results as JSONL to a
+bind-mounted host directory.
+
+```bash
+docker compose up --build
+```
+
+By default this connects to a certstream-server-rust instance running on
+the host, at `ws://host.docker.internal:8080/` (`extra_hosts` in
+`docker-compose.yml` makes `host.docker.internal` resolve on native Linux
+Docker too, not just Docker Desktop). Start your certstream-server-rust
+instance on the host first, then bring the container up.
+
+Results land in `./data/output/results.jsonl` on the host, one JSON
+object per line, flushed as soon as it's written. Watch them live,
+colorized, from the host:
+
+```bash
+python3 scripts/tail_results.py data/output/results.jsonl
+```
+
+No certstream server handy? Replay the bundled fixtures instead (no
+network dependency):
+
+```bash
+VIGIL_SOURCE=fixtures docker compose up --build
+```
+
+Or point at a certstream server elsewhere:
+
+```bash
+VIGIL_CERTSTREAM_URL=ws://some-other-host:8080/ docker compose up --build
+```
 
 ## Detection rules
 

@@ -73,25 +73,27 @@ def _all_output(result) -> str:
     return _strip_ansi(combined)
 
 
-def _stdout(result) -> str:
-    """stdout with rich's color codes stripped."""
-    return _strip_ansi(result.stdout)
+def _records(result) -> list[dict]:
+    """Each stdout line parsed as JSON, blank lines skipped."""
+    return [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
 
 
 def test_default_view_prints_certs_not_detections():
     result = runner.invoke(app, ["watch", "--source", "fixtures", *_NO_CONFIG])
     assert result.exit_code == 0
-    assert "domains=[" in _stdout(result)
-    assert "DETECT" not in _stdout(result)
+    records = _records(result)
+    assert records
+    assert all("domains" in r for r in records)
+    assert all("rules" not in r for r in records)
 
 
 def test_detection_view_prints_only_detections():
     result = runner.invoke(app, ["watch", "--source", "fixtures", "--detection", *_NO_CONFIG])
     assert result.exit_code == 0
-    assert "domains=[" not in _stdout(result)
-    for line in _stdout(result).splitlines():
-        if line.startswith("["):
-            assert "DETECT" in line
+    records = _records(result)
+    assert records
+    assert all("rules" in r and "domain" in r for r in records)
+    assert all("domains" not in r for r in records)
 
 
 def test_detection_with_all_rules_enabled(tmp_path):
@@ -101,8 +103,9 @@ def test_detection_with_all_rules_enabled(tmp_path):
         ["watch", "--source", "fixtures", "--fixtures-path", str(fixture), "--detection", *_NO_CONFIG],
     )
     assert result.exit_code == 0
-    assert "rules=R-01,L-04,M-01" in _stdout(result)
-    assert "rules=R-01,M-03" in _stdout(result)
+    rules_seen = [r["rules"] for r in _records(result)]
+    assert ["R-01", "L-04", "M-01"] in rules_seen
+    assert ["R-01", "M-03"] in rules_seen
 
 
 def test_rules_config_restricts_detections(tmp_path):
@@ -124,10 +127,10 @@ def test_rules_config_restricts_detections(tmp_path):
         ],
     )
     assert result.exit_code == 0
-    detect_lines = [line for line in _stdout(result).splitlines() if "DETECT" in line]
+    records = _records(result)
     # both fixture domains have 4+ labels, so both match M-03; nothing else is enabled
-    assert len(detect_lines) == 2
-    assert all("rules=M-03" in line for line in detect_lines)
+    assert len(records) == 2
+    assert all(r["rules"] == ["M-03"] for r in records)
 
 
 def test_rules_config_missing_file_enables_everything(tmp_path):
@@ -147,7 +150,8 @@ def test_rules_config_missing_file_enables_everything(tmp_path):
         ],
     )
     assert result.exit_code == 0
-    assert "rules=R-01,L-04,M-01" in _stdout(result)
+    rules_seen = [r["rules"] for r in _records(result)]
+    assert ["R-01", "L-04", "M-01"] in rules_seen
 
 
 def test_config_file_drives_detection_and_metrics_without_flags(tmp_path):
@@ -165,8 +169,8 @@ metrics_interval: 2.5
     )
     result = runner.invoke(app, ["watch", "--config", str(config_path)])
     assert result.exit_code == 0
-    # metrics=true hides individual DETECT lines, so check the metrics block instead
-    assert "DETECT" not in _stdout(result)
+    # metrics=true hides individual result records, so check the metrics block instead
+    assert _records(result) == []
     assert "detection metrics" in _all_output(result)
     assert "analysis/domain" in _all_output(result)
 
@@ -186,8 +190,9 @@ detection: true
         app, ["watch", "--config", str(config_path), "--no-detection"]
     )
     assert result.exit_code == 0
-    assert "DETECT" not in _stdout(result)
-    assert "domains=[" in _stdout(result)
+    records = _records(result)
+    assert records
+    assert all("domains" in r for r in records)
 
 
 def test_watch_metrics_flag_emits_block():
@@ -198,7 +203,7 @@ def test_watch_metrics_flag_emits_block():
     output = _all_output(result)
     assert "detection metrics" in output
     assert "analysis/domain" in output
-    assert "detection metrics" not in _stdout(result)  # metrics stay off stdout
+    assert _records(result) == []  # metrics stay off stdout
 
 
 def test_watch_metrics_suppresses_detections():
@@ -206,7 +211,7 @@ def test_watch_metrics_suppresses_detections():
         app, ["watch", "--source", "fixtures", "--detection", "--metrics", *_NO_CONFIG]
     )
     assert result.exit_code == 0
-    assert "DETECT" not in _stdout(result)
+    assert _records(result) == []
     assert "detection metrics" in _all_output(result)
 
 
@@ -259,7 +264,8 @@ def test_skip_wildcards_false_keeps_wildcard_domain(tmp_path):
         ],
     )
     assert result.exit_code == 0
-    assert "*.example.com" in _stdout(result)
+    records = _records(result)
+    assert any("*.example.com" in r.get("domains", []) for r in records)
 
 
 def test_shared_hosting_suffix_suppresses_detection(tmp_path):
@@ -271,7 +277,7 @@ def test_shared_hosting_suffix_suppresses_detection(tmp_path):
         ["watch", "--source", "fixtures", "--fixtures-path", str(path), "--detection", *_NO_CONFIG],
     )
     assert result.exit_code == 0
-    assert "DETECT" not in _stdout(result)
+    assert _records(result) == []
 
 
 def test_skip_wildcards_true_drops_wildcard_only_cert(tmp_path):
@@ -281,4 +287,4 @@ def test_skip_wildcards_true_drops_wildcard_only_cert(tmp_path):
         app, ["watch", "--source", "fixtures", "--fixtures-path", str(path), *_NO_CONFIG]
     )
     assert result.exit_code == 0
-    assert "*.example.com" not in _stdout(result)
+    assert _records(result) == []

@@ -1,0 +1,17 @@
+services:
+  vigil:
+    build: .
+    volumes:
+      - ./data/output:/data/output
+    # lets host.docker.internal resolve on native Linux Docker (not just Docker Desktop)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command:
+      - watch
+      - --source
+      - ${VIGIL_SOURCE:-certstream}
+      - --certstream-url
+      - ${VIGIL_CERTSTREAM_URL:-ws://host.docker.internal:8080/}
+      - --detection
+      - --output
+      - /data/output/results.jsonl
