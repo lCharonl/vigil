@@ -18,4 +18,4 @@ data/state/
 CLAUDE.md
 .claude/
 
-./data/output/*
+data/output/*
