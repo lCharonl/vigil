@@ -57,11 +57,12 @@ def _run_stream(
     digit_exceptions: frozenset[str] = frozenset(),
     watched: frozenset[str] = frozenset(),
     terms: dict[Rule, frozenset[str]] | None = None,
-    rules: frozenset[Rule] | None = None,
+    points: dict[Rule, int] | None = None,
     metrics: bool = False,
     metrics_interval: float = DEFAULT_METRICS_INTERVAL,
     allowlist: frozenset[str] = frozenset(),
     output: Path | None = None,
+    score_threshold: int = 0,
 ) -> None:
     """Drive the ingestion loop, writing certs or detections as JSONL."""
 
@@ -100,7 +101,13 @@ def _run_stream(
                 if detection:
                     t0 = time.perf_counter()
                     results = detect_event(
-                        cert, digit_exceptions, watched, terms, rules=rules, allowlist=allowlist
+                        cert,
+                        digit_exceptions,
+                        watched,
+                        terms,
+                        points=points,
+                        allowlist=allowlist,
+                        score_threshold=score_threshold,
                     )
                     if stats is not None:
                         # metrics-only mode: count detections, skip per-line output
@@ -119,6 +126,7 @@ def _run_stream(
                                     "domain": domain,
                                     "families": families,
                                     "rules": rule_ids,
+                                    "score": sum(r.points for r in reasons),
                                 }
                             )
                 else:

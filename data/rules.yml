@@ -1,16 +1,18 @@
-# Rule toggles. Every registered rule id (see docs/detections_rules.md) must
+# Rule toggles and scoring points. Every registered rule id (see docs/detections_rules.md)
+# must appear here. A domain is reported when the sum of its rule points reaches
+# `score_threshold` (data/config.yml). See docs/scoring.md.
 rules:
-  R-01: true
-  R-02: true
-  R-03: true
-  R-04: true
-  L-01: true
-  L-02: true
-  L-03: true
-  L-04: true
-  M-01: true
-  M-02: true
-  M-03: true
-  M-04: true
-  E-01: true
-  E-02: true
+  R-01: {enabled: true, points: 50}
+  R-02: {enabled: true, points: 50}
+  R-03: {enabled: true, points: 50}
+  R-04: {enabled: true, points: 50}
+  L-01: {enabled: true, points: 25}
+  L-02: {enabled: true, points: 20}
+  L-03: {enabled: true, points: 20}
+  L-04: {enabled: true, points: 10}
+  M-01: {enabled: true, points: 5}
+  M-02: {enabled: true, points: 5}
+  M-03: {enabled: true, points: 5}
+  M-04: {enabled: true, points: 5}
+  E-01: {enabled: true, points: 50}
+  E-02: {enabled: true, points: 30}

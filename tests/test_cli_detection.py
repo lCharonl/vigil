@@ -59,7 +59,10 @@ def _detection_fixture(tmp_path: Path) -> Path:
 
 def _write_rules_config(tmp_path: Path, enabled: dict[str, bool]) -> Path:
     path = tmp_path / "rules.yml"
-    body = "\n".join(f"  {rule}: {'true' if on else 'false'}" for rule, on in enabled.items())
+    body = "\n".join(
+        f"  {rule}: {{enabled: {'true' if on else 'false'}, points: 5}}"
+        for rule, on in enabled.items()
+    )
     path.write_text(f"rules:\n{body}\n", encoding="utf-8")
     return path
 
@@ -131,6 +134,43 @@ def test_rules_config_restricts_detections(tmp_path):
     # both fixture domains have 4+ labels, so both match M-03; nothing else is enabled
     assert len(records) == 2
     assert all(r["rules"] == ["M-03"] for r in records)
+
+
+def _detect(fixture: Path, *extra: str):
+    return runner.invoke(
+        app,
+        ["watch", "--source", "fixtures", "--fixtures-path", str(fixture), "--detection",
+         *extra, *_NO_CONFIG],
+    )
+
+
+def test_detection_records_carry_score(tmp_path):
+    # default data/rules.yml: R-01 50 + L-04 10 + M-01 5, and R-01 50 + M-03 5
+    result = _detect(_detection_fixture(tmp_path))
+    assert result.exit_code == 0
+    scores = {r["domain"]: r["score"] for r in _records(result)}
+    assert scores == {
+        "chase.secure-login-verify-my.example.com": 65,
+        "chase.a.b.c.example.com": 55,
+    }
+
+
+def test_score_threshold_flag_filters_detections(tmp_path):
+    result = _detect(_detection_fixture(tmp_path), "--score-threshold", "60")
+    assert result.exit_code == 0
+    assert [r["domain"] for r in _records(result)] == ["chase.secure-login-verify-my.example.com"]
+
+
+def test_score_threshold_from_config_file(tmp_path):
+    fixture = _detection_fixture(tmp_path)
+    config_path = tmp_path / "config.yml"
+    config_path.write_text(
+        f"source: fixtures\nfixtures_path: {fixture}\ndetection: true\nscore_threshold: 100\n",
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["watch", "--config", str(config_path)])
+    assert result.exit_code == 0
+    assert _records(result) == []
 
 
 def test_rules_config_missing_file_enables_everything(tmp_path):

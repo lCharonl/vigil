@@ -1,23 +1,32 @@
-"""Rule enable/disable loading from a YAML config file."""
+"""Rule toggles and scoring points loaded from a YAML config file."""
 
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from vigil.detect.registry import Rule
 
 DEFAULT_RULES_CONFIG_PATH = Path("data/rules.yml")
 
 
+class RuleSetting(BaseModel):
+    enabled: bool = True
+    points: int = Field(default=0, ge=0)
+
+
 class RulesConfig(BaseModel):
-    rules: dict[str, bool]
+    rules: dict[str, RuleSetting]
 
 
-def load_enabled_rules(path: Path | str = DEFAULT_RULES_CONFIG_PATH) -> frozenset[Rule]:
-    """Rules enabled in the config file, or every rule if the file is missing."""
+def load_rule_points(path: Path | str = DEFAULT_RULES_CONFIG_PATH) -> dict[Rule, int]:
+    """Points of each enabled rule, or every rule at 0 points if the file is missing."""
     path = Path(path)
     if not path.exists():
-        return frozenset(Rule)
+        return dict.fromkeys(Rule, 0)
     parsed = RulesConfig.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
-    return frozenset(Rule(key.upper()) for key, enabled in parsed.rules.items() if enabled)
+    return {
+        Rule(key.upper()): setting.points
+        for key, setting in parsed.rules.items()
+        if setting.enabled
+    }

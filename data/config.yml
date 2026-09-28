@@ -8,3 +8,4 @@ skip_wildcards: true
 detection: true
 metrics: false
 metrics_interval: 2.0
+score_threshold: 50         # min summed rule points (data/rules.yml) to report a domain

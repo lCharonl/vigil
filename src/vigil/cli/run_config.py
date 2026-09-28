@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from vigil.cli.defaults import (
     DEFAULT_FIXTURES_PATH,
@@ -27,6 +27,7 @@ class RunConfig(BaseModel):
     detection: bool = False
     metrics: bool = False
     metrics_interval: float = DEFAULT_METRICS_INTERVAL
+    score_threshold: int = Field(default=0, ge=0)
 
 
 def load_run_config(path: Path | str = DEFAULT_RUN_CONFIG_PATH) -> RunConfig:

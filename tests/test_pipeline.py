@@ -33,32 +33,57 @@ def test_detect_event_no_match_returns_empty():
     assert detect_event(make_event(["apple.com"])) == []
 
 
-def test_detect_event_morphological_alone_is_suppressed():
-    # M-01 (3+ hyphens) matches but nothing else does: too weak alone.
-    event = make_event(["secure-a-b-c-d.com"])
-    assert detect_event(event) == []
+POINTS = {rule: (5 if rule.value.startswith("M-") else 50) for rule in Rule}
 
 
-def test_detect_event_morphological_kept_when_reinforced():
+def test_detect_event_reasons_carry_rule_points():
     event = make_event(["microsoft.secure-a-b-c-d.com"])
-    detections = detect_event(event, watched=frozenset({"microsoft"}))
-    assert len(detections) == 1
+    detections = detect_event(event, watched=frozenset({"microsoft"}), points=POINTS)
     _domain, reasons = detections[0]
-    assert Rule.M_01 in [r.rule for r in reasons]
-    assert Rule.R_01 in [r.rule for r in reasons]
+    assert {(r.rule, r.points) for r in reasons} == {(Rule.R_01, 50), (Rule.M_01, 5)}
+
+
+def test_detect_event_without_points_scores_zero():
+    event = make_event(["microsoft.secure-a-b-c-d.com"])
+    _domain, reasons = detect_event(event, watched=frozenset({"microsoft"}))[0]
+    assert all(r.points == 0 for r in reasons)
+
+
+def test_detect_event_below_threshold_is_dropped():
+    # M-01 (3+ hyphens) alone: 5 points
+    event = make_event(["secure-a-b-c-d.com"])
+    assert detect_event(event, points=POINTS, score_threshold=50) == []
+
+
+def test_detect_event_score_equal_to_threshold_is_kept():
+    event = make_event(["microsoft.secure-a-b-c-d.com"])
+    detections = detect_event(
+        event, watched=frozenset({"microsoft"}), points=POINTS, score_threshold=55
+    )
+    assert len(detections) == 1
+    assert detect_event(
+        event, watched=frozenset({"microsoft"}), points=POINTS, score_threshold=56
+    ) == []
+
+
+def test_detect_event_zero_threshold_keeps_morphological_alone():
+    event = make_event(["secure-a-b-c-d.com"])
+    detections = detect_event(event, points=POINTS)
+    assert [r.rule for _domain, reasons in detections for r in reasons] == [Rule.M_01]
+
+
+def test_detect_event_points_restrict_rules():
+    event = make_event(["microsoft.secure-a-b-c-d.com"])
+    detections = detect_event(event, watched=frozenset({"microsoft"}), points={Rule.M_01: 5})
+    assert [r.rule for _domain, reasons in detections for r in reasons] == [Rule.M_01]
 
 
 def test_detect_event_applies_digit_exceptions():
-    # office365.com alone: M-04 would match but is suppressed (no reinforcement).
-    event = make_event(["office365.com"])
-    assert detect_event(event) == []
-
-    # reinforced by R-01: M-04 (without exceptions) is kept, then suppressed by exceptions.
-    reinforced = make_event(["microsoft.office365-login.com"])
-    assert detect_event(reinforced, watched=frozenset({"microsoft"})) != []
-    detections = detect_event(
-        reinforced, frozenset({"365"}), watched=frozenset({"microsoft"})
-    )
+    event = make_event(["microsoft.office365-login.com"])
+    watched = frozenset({"microsoft"})
+    rules_seen = [r.rule for _d, reasons in detect_event(event, watched=watched) for r in reasons]
+    assert Rule.M_04 in rules_seen
+    detections = detect_event(event, frozenset({"365"}), watched=watched)
     assert Rule.M_04 not in [r.rule for _domain, reasons in detections for r in reasons]
 
 
