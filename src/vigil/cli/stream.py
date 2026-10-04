@@ -64,6 +64,7 @@ def _run_stream(
     output: Path | None = None,
     score_threshold: int = 0,
     max_domain_length: int | None = None,
+    tranco: frozenset[str] = frozenset(),
 ) -> None:
     """Drive the ingestion loop, writing certs or detections as JSONL."""
 
@@ -114,6 +115,7 @@ def _run_stream(
                         points=points,
                         allowlist=allowlist,
                         score_threshold=score_threshold,
+                        tranco=tranco,
                     )
                     if stats is not None:
                         # metrics-only mode: count detections, skip per-line output

@@ -15,6 +15,7 @@ from vigil.cli.stream import (
     _run_stream,
 )
 from vigil.detect.data.rules_config import load_rule_points
+from vigil.detect.data.tranco import load_tranco
 from vigil.detect.registry import Rule
 from vigil.ingest.base import Source
 from vigil.ingest.certstream import CertStreamSource
@@ -73,6 +74,11 @@ def watch(
         min=1,
         help="Drop SANs longer than this many characters",
     ),
+    tranco_csv: Path | None = typer.Option(
+        None,
+        "--tranco-csv",
+        help="Tranco top-sites CSV; ranked domains are never reported",
+    ),
     detection: bool | None = typer.Option(
         None,
         "--detection/--no-detection",
@@ -105,8 +111,9 @@ def watch(
     max_domain_length = (
         max_domain_length if max_domain_length is not None else run_config.max_domain_length
     )
+    tranco_csv = tranco_csv if tranco_csv is not None else run_config.tranco_csv
     detection = detection if detection is not None else run_config.detection
-    metrics =metrics if metrics is not None else run_config.metrics
+    metrics = metrics if metrics is not None else run_config.metrics
     metrics_interval = (
         metrics_interval if metrics_interval is not None else run_config.metrics_interval
     )
@@ -136,12 +143,17 @@ def watch(
     terms: dict[Rule, frozenset[str]] | None = None
     allowlist: frozenset[str] = frozenset()
     points: dict[Rule, int] | None = None
+    tranco: frozenset[str] = frozenset()
     if detection:
         digit_exceptions = _load_digit_exceptions(watchlist)
         watched = _load_watched_brands(watchlist)
         terms = _load_terms()
         allowlist = _load_allowlist(watchlist)
         points = load_rule_points(rules_config)
+        if tranco_csv is not None:
+            if not tranco_csv.exists():
+                logger.warning("tranco file not found: %s (continuing without it)", tranco_csv)
+            tranco = load_tranco(tranco_csv)
 
     _run_stream(
         src,
@@ -157,6 +169,7 @@ def watch(
         output=output,
         score_threshold=score_threshold,
         max_domain_length=max_domain_length,
+        tranco=tranco,
     )
 
 

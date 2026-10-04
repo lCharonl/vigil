@@ -26,6 +26,7 @@ class RunConfig(BaseModel):
     output: Path | None = None
     skip_wildcards: bool = True
     max_domain_length: int | None = Field(default=DEFAULT_MAX_DOMAIN_LENGTH, ge=1)
+    tranco_csv: Path | None = None
     detection: bool = False
     metrics: bool = False
     metrics_interval: float = DEFAULT_METRICS_INTERVAL

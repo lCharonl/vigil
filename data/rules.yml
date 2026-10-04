@@ -2,8 +2,8 @@
 # must appear here. A domain is reported when the sum of its rule points reaches
 # `score_threshold` (data/config.yml). See docs/scoring.md.
 rules:
-  R-01: {enabled: true, points: 50}
-  R-02: {enabled: true, points: 50}
+  R-01: {enabled: true, points: 40}
+  R-02: {enabled: true, points: 40}
   R-03: {enabled: false, points: 50}
   R-04: {enabled: true, points: 50}
   L-01: {enabled: true, points: 25}

@@ -51,12 +51,13 @@ def detect_event(
     points: dict[Rule, int] | None = None,
     allowlist: frozenset[str] = frozenset(),
     score_threshold: int = 0,
+    tranco: frozenset[str] = frozenset(),
 ) -> list[tuple[str, list[Reason]]]:
     """Return (domain, reasons) for each domain whose summed points reach the threshold."""
     detections: list[tuple[str, list[Reason]]] = []
     for domain in cert.domains:
         name = parse_domain(domain)
-        if is_allowlisted(name, allowlist):
+        if is_allowlisted(name, allowlist) or name.registrable in tranco:
             continue
         reasons = evaluate_domain(name, digit_exceptions, watched, terms, points)
         if reasons and sum(r.points for r in reasons) >= score_threshold:
