@@ -23,6 +23,7 @@ def test_missing_file_returns_hardcoded_defaults():
     assert config.rules_config == DEFAULT_RULES_CONFIG_PATH
     assert config.skip_wildcards is True
     assert config.max_domain_length == DEFAULT_MAX_DOMAIN_LENGTH
+    assert config.tranco_csv is None
     assert config.detection is False
     assert config.metrics is False
     assert config.metrics_interval == DEFAULT_METRICS_INTERVAL
@@ -49,6 +50,7 @@ watchlist: my_watchlist.yml
 rules_config: my_rules.yml
 skip_wildcards: false
 max_domain_length: 63
+tranco_csv: top.csv
 detection: true
 metrics: true
 metrics_interval: 3.0
@@ -64,6 +66,7 @@ metrics_interval: 3.0
         rules_config=Path("my_rules.yml"),
         skip_wildcards=False,
         max_domain_length=63,
+        tranco_csv=Path("top.csv"),
         detection=True,
         metrics=True,
         metrics_interval=3.0,

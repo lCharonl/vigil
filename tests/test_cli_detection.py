@@ -352,3 +352,12 @@ def test_skip_wildcards_true_drops_wildcard_only_cert(tmp_path):
     )
     assert result.exit_code == 0
     assert _records(result) == []
+
+
+def test_tranco_csv_flag_suppresses_ranked_domains(tmp_path):
+    fixture = tmp_path / "certs.jsonl"
+    _write_fixture(fixture, [["chase.a-b-c-d.example.com"]])
+    tranco = tmp_path / "top.csv"
+    tranco.write_text("1,example.com\n", encoding="utf-8")
+    assert _records(_detect(fixture, "--score-threshold", "1"))
+    assert _records(_detect(fixture, "--score-threshold", "1", "--tranco-csv", str(tranco))) == []

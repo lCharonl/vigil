@@ -131,3 +131,11 @@ def test_detect_event_allowlist_only_suppresses_matching_domains():
     )
     assert len(detections) == 1
     assert detections[0][0] == "microsoft.secure-a-b-c-d.com"
+
+
+def test_detect_event_tranco_suppresses_by_registrable_domain():
+    event = make_event(["almost-bank-a-b-c-d.alegra.com", "microsoft.secure-a-b-c-d.com"])
+    detections = detect_event(
+        event, watched=frozenset({"microsoft"}), tranco=frozenset({"alegra.com"})
+    )
+    assert [d for d, _ in detections] == ["microsoft.secure-a-b-c-d.com"]
