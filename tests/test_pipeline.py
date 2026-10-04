@@ -33,48 +33,45 @@ def test_detect_event_no_match_returns_empty():
     assert detect_event(make_event(["apple.com"])) == []
 
 
-POINTS = {rule: (5 if rule.value.startswith("M-") else 50) for rule in Rule}
-
-
-def test_detect_event_reasons_carry_rule_points():
-    event = make_event(["microsoft.secure-a-b-c-d.com"])
-    detections = detect_event(event, watched=frozenset({"microsoft"}), points=POINTS)
-    _domain, reasons = detections[0]
-    assert {(r.rule, r.points) for r in reasons} == {(Rule.R_01, 50), (Rule.M_01, 5)}
-
-
-def test_detect_event_without_points_scores_zero():
+def test_detect_event_default_reports_every_matching_rule():
     event = make_event(["microsoft.secure-a-b-c-d.com"])
     _domain, reasons = detect_event(event, watched=frozenset({"microsoft"}))[0]
-    assert all(r.points == 0 for r in reasons)
+    assert {r.rule for r in reasons} == {Rule.R_01, Rule.M_01}
 
 
-def test_detect_event_below_threshold_is_dropped():
-    # M-01 (3+ hyphens) alone: 5 points
+def test_detect_event_combination_needs_every_rule():
+    event = make_event(["secure-a-b-c-d.com"])  # M-01 only
+    combo = [frozenset({Rule.R_01, Rule.M_01})]
+    assert detect_event(event, watched=frozenset({"microsoft"}), detections=combo) == []
+
+
+def test_detect_event_combination_satisfied_returns_its_rules():
+    event = make_event(["microsoft.secure-a-b-c-d.com"])
+    combo = [frozenset({Rule.R_01, Rule.M_01})]
+    detections = detect_event(event, watched=frozenset({"microsoft"}), detections=combo)
+    assert [(d, {r.rule for r in rs}) for d, rs in detections] == [
+        ("microsoft.secure-a-b-c-d.com", {Rule.R_01, Rule.M_01})
+    ]
+
+
+def test_detect_event_combinations_are_ored():
     event = make_event(["secure-a-b-c-d.com"])
-    assert detect_event(event, points=POINTS, score_threshold=50) == []
+    combos = [frozenset({Rule.R_01, Rule.M_01}), frozenset({Rule.M_01})]
+    assert len(detect_event(event, detections=combos)) == 1
 
 
-def test_detect_event_score_equal_to_threshold_is_kept():
+def test_detect_event_same_family_combination():
+    # M-01 and M-03 both match; first-match-per-family used to hide M-03
+    event = make_event(["a-b-c-d.e.f.com"])
+    combo = [frozenset({Rule.M_01, Rule.M_03})]
+    assert len(detect_event(event, detections=combo)) == 1
+
+
+def test_detect_event_only_listed_rules_are_reported():
     event = make_event(["microsoft.secure-a-b-c-d.com"])
     detections = detect_event(
-        event, watched=frozenset({"microsoft"}), points=POINTS, score_threshold=55
+        event, watched=frozenset({"microsoft"}), detections=[frozenset({Rule.M_01})]
     )
-    assert len(detections) == 1
-    assert detect_event(
-        event, watched=frozenset({"microsoft"}), points=POINTS, score_threshold=56
-    ) == []
-
-
-def test_detect_event_zero_threshold_keeps_morphological_alone():
-    event = make_event(["secure-a-b-c-d.com"])
-    detections = detect_event(event, points=POINTS)
-    assert [r.rule for _domain, reasons in detections for r in reasons] == [Rule.M_01]
-
-
-def test_detect_event_points_restrict_rules():
-    event = make_event(["microsoft.secure-a-b-c-d.com"])
-    detections = detect_event(event, watched=frozenset({"microsoft"}), points={Rule.M_01: 5})
     assert [r.rule for _domain, reasons in detections for r in reasons] == [Rule.M_01]
 
 

@@ -100,8 +100,8 @@ def evaluate_referential(
     watched: frozenset[str] = frozenset(),
     terms: dict[Rule, frozenset[str]] | None = None,
     rules: frozenset[Rule] | None = None,
-) -> Reason | None:
-    """Return the first matching enabled referential rule as a Reason, or None."""
+) -> list[Reason]:
+    """Return a Reason for every matching enabled referential rule."""
     auth_terms = (terms or {}).get(Rule.R_04, frozenset())
     predicates = {
         Rule.R_01: lambda: brand_outside_registrable(name, watched),
@@ -109,9 +109,10 @@ def evaluate_referential(
         Rule.R_03: lambda: brand_typo_distance(name, watched),
         Rule.R_04: lambda: brand_adjacent_to_auth_term(name, watched, auth_terms),
     }
+    reasons: list[Reason] = []
     for rule in REFERENTIAL_RULES:
         if rules is not None and rule not in rules:
             continue
         if predicates[rule]():
-            return Reason(family=Family.REFERENTIAL, rule=rule, points=0)
-    return None
+            reasons.append(Reason(family=Family.REFERENTIAL, rule=rule))
+    return reasons

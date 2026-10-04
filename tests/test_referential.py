@@ -77,24 +77,22 @@ def test_r04_reversed_order_still_matches():
     assert brand_adjacent_to_auth_term(name, PAYPAL, AUTH_TERMS)
 
 
-def test_evaluate_first_match_wins():
+def test_evaluate_returns_every_matching_rule():
     # "paypal" outside the registrable (R-01) and "arnazon" is a typo of "amazon" (R-03)
-    # both match; R-01 comes first in evaluation order
     name = parse_domain("paypal.arnazon.net")
-    reason = evaluate_referential(name, frozenset({"paypal", "amazon"}))
-    assert reason is not None
-    assert reason.family == Family.REFERENTIAL
-    assert reason.rule == Rule.R_01
+    reasons = evaluate_referential(name, frozenset({"paypal", "amazon"}))
+    assert [r.rule for r in reasons] == [Rule.R_01, Rule.R_03]
+    assert all(r.family == Family.REFERENTIAL for r in reasons)
 
 
-def test_evaluate_no_match_returns_none():
+def test_evaluate_no_match_returns_empty():
     name = parse_domain("paypal-login.net")
-    assert evaluate_referential(name, PAYPAL, {Rule.R_04: frozenset()}) is None
-    assert evaluate_referential(parse_domain("apple.com"), PAYPAL, {Rule.R_04: AUTH_TERMS}) is None
+    assert evaluate_referential(name, PAYPAL, {Rule.R_04: frozenset()}) == []
+    assert evaluate_referential(parse_domain("apple.com"), PAYPAL, {Rule.R_04: AUTH_TERMS}) == []
 
 
-def test_evaluate_empty_watched_returns_none():
-    assert evaluate_referential(parse_domain("paypal-login.net")) is None
+def test_evaluate_empty_watched_returns_empty():
+    assert evaluate_referential(parse_domain("paypal-login.net")) == []
 
 
 def test_bounded_levenshtein_exact_match():

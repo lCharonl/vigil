@@ -35,7 +35,7 @@ separate script to tail the file live (see `scripts/tail_results.py`).
 Useful flags:
 
 - `--detection` — run detection rules, emit only matches.
-- `--rules-config data/rules.yml` — enable/disable individual rules.
+- `--rules-config data/rules.yml` — detection rules (rule combinations to report).
 - `--watchlist data/watchlist.yml` — brands to monitor.
 - `--output FILE` — append results as JSONL to FILE instead of stdout.
 - `--metrics` — print throughput stats to stderr instead of individual results.
@@ -84,7 +84,7 @@ Rules are grouped into families (referential, lexical, morphological, ...).
 See `docs/detections_rules.md` for the full spec — what each rule catches,
 why it's ordered the way it is, and its known blind spots.
 
-Toggle rules in `data/rules.yml`, one line per rule id.
+Define detections in `data/rules.yml`, one rule combination per line (e.g. `- [R-03, M-01]`).
 
 ## Tests
 

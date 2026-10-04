@@ -40,7 +40,6 @@ class CertEvent(BaseModel):
 class Reason(BaseModel):
     family: str
     rule: str
-    points: int
 
 class DomainVerdict(BaseModel):
     domain: str

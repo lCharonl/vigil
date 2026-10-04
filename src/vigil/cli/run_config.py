@@ -30,7 +30,6 @@ class RunConfig(BaseModel):
     detection: bool = False
     metrics: bool = False
     metrics_interval: float = DEFAULT_METRICS_INTERVAL
-    score_threshold: int = Field(default=0, ge=0)
 
 
 def load_run_config(path: Path | str = DEFAULT_RUN_CONFIG_PATH) -> RunConfig:

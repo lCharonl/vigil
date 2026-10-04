@@ -57,12 +57,11 @@ def _run_stream(
     digit_exceptions: frozenset[str] = frozenset(),
     watched: frozenset[str] = frozenset(),
     terms: dict[Rule, frozenset[str]] | None = None,
-    points: dict[Rule, int] | None = None,
+    detections: list[frozenset[Rule]] | None = None,
     metrics: bool = False,
     metrics_interval: float = DEFAULT_METRICS_INTERVAL,
     allowlist: frozenset[str] = frozenset(),
     output: Path | None = None,
-    score_threshold: int = 0,
     max_domain_length: int | None = None,
     tranco: frozenset[str] = frozenset(),
 ) -> None:
@@ -112,9 +111,8 @@ def _run_stream(
                         digit_exceptions,
                         watched,
                         terms,
-                        points=points,
+                        detections=detections,
                         allowlist=allowlist,
-                        score_threshold=score_threshold,
                         tranco=tranco,
                     )
                     if stats is not None:
@@ -134,7 +132,6 @@ def _run_stream(
                                     "domain": domain,
                                     "families": families,
                                     "rules": rule_ids,
-                                    "score": sum(r.points for r in reasons),
                                 }
                             )
                 else:

@@ -1,0 +1,2 @@
+# test run config: every rule alone is a detection (rules file missing)
+rules_config: /nonexistent/vigil-test-rules.yml

@@ -1,17 +1,17 @@
-# Rule toggles and scoring points. Every registered rule id (see docs/detections_rules.md)
-# must appear here. A domain is reported when the sum of its rule points reaches
-# `score_threshold` (data/config.yml). See docs/scoring.md.
-rules:
-  R-01: {enabled: true, points: 40}
-  R-02: {enabled: true, points: 40}
-  R-03: {enabled: false, points: 50}
-  R-04: {enabled: true, points: 50}
-  L-01: {enabled: true, points: 25}
-  L-02: {enabled: true, points: 20}
-  L-03: {enabled: true, points: 20}
-  L-04: {enabled: true, points: 10}
-  M-01: {enabled: true, points: 5}
-  M-03: {enabled: false, points: 5}
-  M-04: {enabled: true, points: 5}
-  E-01: {enabled: true, points: 50}
-  E-02: {enabled: true, points: 30}
+# Detection rules: a domain is reported when it matches every rule of at least one
+# combination below (AND inside a combination, OR between combinations).
+# Only rules listed here are evaluated. See docs/detections_rules.md.
+detections:
+  - [R-04]
+  - [E-01]
+  - [R-03, M-01]
+  - [R-01, L-01]
+  - [R-01, L-02]
+  - [R-01, L-03]
+  - [R-01, L-04]
+  - [R-01, E-02]
+  - [R-02, L-01]
+  - [R-02, L-02]
+  - [R-02, L-03]
+  - [R-02, L-04]
+  - [R-02, E-02]

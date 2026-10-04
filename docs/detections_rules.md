@@ -3,9 +3,8 @@
 The heuristics Vigil uses to decide that a domain may be impersonating a watched
 brand, and how they are grouped.
 
-Weighting, score aggregation and suppression are deliberately **out of scope** for
-this version of the document. Rules are defined first; how much each is worth
-comes later.
+Which rules, or combinations of rules, justify a report is configured in
+`data/rules.yml` and described in `docs/rule_combinations.md`.
 
 This document is the specification. Code in `src/vigil/detect/` implements it and
 must not diverge from it. If a rule changes, change this file first.
@@ -65,22 +64,15 @@ Each family maps to one module in `src/vigil/detect/families/` (`referential`,
 > Removed: the statistical family (required a corpus baseline that was never
 > built) and the certificate-metadata family (SAN-count check, context-only
 > signal) were dropped along with their stub modules, rule IDs and `rules.yml`
-> toggles. Reintroduce them under new rule identifiers if the need resurfaces —
+> entries. Reintroduce them under new rule identifiers if the need resurfaces —
 > don't reuse the removed ones, since they'd carry the assumptions of this
 > removal.
 
-### One rule per family
+### Every matching rule counts
 
-**Within a family, rules are evaluated in order of decreasing specificity. The
-first one that matches wins, and evaluation moves to the next family.**
-
-This exists to prevent double counting. `microsoft-login.xyz` would otherwise
-trigger several correlated referential and lexical rules for a single observed
-fact — that a brand sits next to an authentication term.
-
-Ordering by specificity matters for the same reason: the reported reason must be
-the most informative one ("brand outside the registrable domain"), not the most
-generic one ("contains the word login").
+**Each rule is evaluated independently, so a domain can match several rules of the
+same family.** Which rules (or combinations of rules) justify a report is decided
+in `data/rules.yml`, not here. See `docs/rule_combinations.md`.
 
 ---
 
@@ -160,7 +152,7 @@ legitimate traffic:
 `.xyz` and other cheap TLDs · Let's Encrypt as issuer · recently issued
 certificate · punycode · many subdomains · long domain · Cloudflare in the chain
 
-The intended shape is: several weak signals → combined score → DNS/WHOIS/HTTP
+The intended shape is: several weak signals → rule combination → DNS/WHOIS/HTTP
 enrichment → classification.
 
 ---

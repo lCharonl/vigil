@@ -10,4 +10,3 @@ tranco_csv: data/top-1m.csv
 detection: true
 metrics: false
 metrics_interval: 2.0
-score_threshold: 50

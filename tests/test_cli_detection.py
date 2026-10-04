@@ -19,7 +19,7 @@ def _strip_ansi(text: str) -> str:
 
 # isolates tests from the repo's real data/config.yml, which the user tunes
 # for their own live runs (see tests/test_run_config.py for the loader itself)
-_NO_CONFIG = ["--config", "/nonexistent/vigil-test-config.yml"]
+_NO_CONFIG = ["--config", "tests/fixtures/run_config_test.yml"]
 
 
 def _write_fixture(path: Path, domains_per_cert: list[list[str]]) -> None:
@@ -57,13 +57,10 @@ def _detection_fixture(tmp_path: Path) -> Path:
     return path
 
 
-def _write_rules_config(tmp_path: Path, enabled: dict[str, bool]) -> Path:
+def _write_rules_config(tmp_path: Path, detections: list[list[str]]) -> Path:
     path = tmp_path / "rules.yml"
-    body = "\n".join(
-        f"  {rule}: {{enabled: {'true' if on else 'false'}, points: 5}}"
-        for rule, on in enabled.items()
-    )
-    path.write_text(f"rules:\n{body}\n", encoding="utf-8")
+    body = "\n".join(f"  - [{', '.join(combo)}]" for combo in detections)
+    path.write_text(f"detections:\n{body}\n", encoding="utf-8")
     return path
 
 
@@ -107,31 +104,22 @@ def test_detection_with_all_rules_enabled(tmp_path):
     )
     assert result.exit_code == 0
     rules_seen = [r["rules"] for r in _records(result)]
-    assert ["R-01", "L-04", "M-01"] in rules_seen
+    assert ["R-01", "L-04", "M-01", "M-03"] in rules_seen
     assert ["R-01", "M-03"] in rules_seen
 
 
 def test_rules_config_restricts_detections(tmp_path):
-    fixture = _detection_fixture(tmp_path)
-    all_rules = ["R-01", "R-02", "R-03", "R-04", "L-01", "L-02", "L-03", "L-04", "M-01", "M-03", "M-04"]
-    rules_config = _write_rules_config(tmp_path, {r: r == "M-03" for r in all_rules})
+    rules_config = _write_rules_config(tmp_path, [["M-03"]])
     result = runner.invoke(
         app,
         [
-            "watch",
-            "--source",
-            "fixtures",
-            "--fixtures-path",
-            str(fixture),
-            "--detection",
-            "--rules-config",
-            str(rules_config),
-            *_NO_CONFIG,
+            "watch", "--source", "fixtures", "--fixtures-path", str(_detection_fixture(tmp_path)),
+            "--detection", "--rules-config", str(rules_config), *_NO_CONFIG,
         ],
     )
     assert result.exit_code == 0
     records = _records(result)
-    # both fixture domains have 4+ labels, so both match M-03; nothing else is enabled
+    # both fixture domains have 4+ labels, so both match M-03; nothing else is listed
     assert len(records) == 2
     assert all(r["rules"] == ["M-03"] for r in records)
 
@@ -144,33 +132,30 @@ def _detect(fixture: Path, *extra: str):
     )
 
 
-def test_detection_records_carry_score(tmp_path):
-    # default data/rules.yml: R-01 50 + L-04 10 + M-01 5, and R-01 50 + M-03 5
-    result = _detect(_detection_fixture(tmp_path))
-    assert result.exit_code == 0
-    scores = {r["domain"]: r["score"] for r in _records(result)}
-    assert scores == {
-        "chase.secure-login-verify-my.example.com": 65,
-        "chase.a.b.c.example.com": 55,
-    }
-
-
-def test_score_threshold_flag_filters_detections(tmp_path):
-    result = _detect(_detection_fixture(tmp_path), "--score-threshold", "60")
-    assert result.exit_code == 0
-    assert [r["domain"] for r in _records(result)] == ["chase.secure-login-verify-my.example.com"]
-
-
-def test_score_threshold_from_config_file(tmp_path):
-    fixture = _detection_fixture(tmp_path)
-    config_path = tmp_path / "config.yml"
-    config_path.write_text(
-        f"source: fixtures\nfixtures_path: {fixture}\ndetection: true\nscore_threshold: 100\n",
-        encoding="utf-8",
+def test_rules_config_combination_requires_every_rule(tmp_path):
+    result = _detect(
+        _detection_fixture(tmp_path),
+        "--rules-config",
+        str(_write_rules_config(tmp_path, [["R-01", "M-01"]])),
     )
-    result = runner.invoke(app, ["watch", "--config", str(config_path)])
     assert result.exit_code == 0
-    assert _records(result) == []
+    records = _records(result)
+    assert [r["domain"] for r in records] == ["chase.secure-login-verify-my.example.com"]
+    assert records[0]["rules"] == ["R-01", "M-01"]
+
+
+def test_rules_config_combinations_are_ored(tmp_path):
+    result = _detect(
+        _detection_fixture(tmp_path),
+        "--rules-config",
+        str(_write_rules_config(tmp_path, [["R-01", "M-01"], ["R-01", "M-03"]])),
+    )
+    assert len(_records(result)) == 2
+
+
+def test_records_have_no_score(tmp_path):
+    result = _detect(_detection_fixture(tmp_path))
+    assert all("score" not in r for r in _records(result))
 
 
 def test_max_domain_length_flag_drops_long_domains(tmp_path):
@@ -215,7 +200,7 @@ def test_rules_config_missing_file_enables_everything(tmp_path):
     )
     assert result.exit_code == 0
     rules_seen = [r["rules"] for r in _records(result)]
-    assert ["R-01", "L-04", "M-01"] in rules_seen
+    assert ["R-01", "L-04", "M-01", "M-03"] in rules_seen
 
 
 def test_config_file_drives_detection_and_metrics_without_flags(tmp_path):
@@ -359,5 +344,5 @@ def test_tranco_csv_flag_suppresses_ranked_domains(tmp_path):
     _write_fixture(fixture, [["chase.a-b-c-d.example.com"]])
     tranco = tmp_path / "top.csv"
     tranco.write_text("1,example.com\n", encoding="utf-8")
-    assert _records(_detect(fixture, "--score-threshold", "1"))
-    assert _records(_detect(fixture, "--score-threshold", "1", "--tranco-csv", str(tranco))) == []
+    assert _records(_detect(fixture))
+    assert _records(_detect(fixture, "--tranco-csv", str(tranco))) == []

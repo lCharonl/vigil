@@ -32,26 +32,23 @@ def test_e02_no_match_for_plain_ascii():
     assert not has_punycode_label(parse_domain("microsoft.com"))
 
 
-def test_evaluate_mixed_script_wins_over_punycode():
+def test_evaluate_mixed_script_and_punycode_both_reported():
     name = parse_domain("xn--pypal-4ve.com")
-    reason = evaluate_encoding(name)
-    assert reason is not None
-    assert reason.family == Family.ENCODING
-    assert reason.rule == Rule.E_01
+    reasons = evaluate_encoding(name)
+    assert [r.rule for r in reasons] == [Rule.E_01, Rule.E_02]
+    assert all(r.family == Family.ENCODING for r in reasons)
 
 
 def test_evaluate_punycode_only():
     name = parse_domain("xn--80ak6aa92e.com")
-    reason = evaluate_encoding(name)
-    assert reason is not None
-    assert reason.rule == Rule.E_02
+    assert [r.rule for r in evaluate_encoding(name)] == [Rule.E_02]
 
 
-def test_evaluate_no_match_returns_none():
-    assert evaluate_encoding(parse_domain("microsoft.com")) is None
+def test_evaluate_no_match_returns_empty():
+    assert evaluate_encoding(parse_domain("microsoft.com")) == []
 
 
 def test_evaluate_respects_rule_restriction():
     name = parse_domain("xn--pypal-4ve.com")
-    assert evaluate_encoding(name, rules=frozenset({Rule.E_02})) is not None
-    assert evaluate_encoding(name, rules=frozenset()) is None
+    assert evaluate_encoding(name, rules=frozenset({Rule.E_02})) != []
+    assert evaluate_encoding(name, rules=frozenset()) == []

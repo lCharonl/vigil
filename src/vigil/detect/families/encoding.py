@@ -46,15 +46,16 @@ ENCODING_RULES: tuple[Rule, ...] = (Rule.E_01, Rule.E_02)
 def evaluate_encoding(
     name: DomainName,
     rules: frozenset[Rule] | None = None,
-) -> Reason | None:
-    """Return the first matching enabled encoding rule as a Reason, or None."""
+) -> list[Reason]:
+    """Return a Reason for every matching enabled encoding rule."""
     predicates = {
         Rule.E_01: lambda: has_mixed_script_label(name),
         Rule.E_02: lambda: has_punycode_label(name),
     }
+    reasons: list[Reason] = []
     for rule in ENCODING_RULES:
         if rules is not None and rule not in rules:
             continue
         if predicates[rule]():
-            return Reason(family=Family.ENCODING, rule=rule, points=0)
-    return None
+            reasons.append(Reason(family=Family.ENCODING, rule=rule))
+    return reasons

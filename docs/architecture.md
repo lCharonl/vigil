@@ -15,8 +15,7 @@ Vigil is split into three layers that only communicate through the `CertEvent` a
 
 - **Detection** (`vigil.detect`) consumes `CertEvent` objects and the watchlist
   (`data/watchlist.yml`) to produce `Finding` objects. `pipeline.py` runs the enabled
-  families over each cert; `registry.py` is the Rule/Family catalogue and `scoring.py`
-  builds the `Finding` (stub). One module per family lives in `detect/families/` (only
+  families over each cert; `registry.py` is the Rule/Family catalogue (`Finding` is a stub). One module per family lives in `detect/families/` (only
   `morphological.py` is implemented; the rest are stubs). `detect/techniques/` holds
   pure string helpers — `names.py` (PSL split), `permutations.py` and `homoglyphs.py`
   (both stubs) — and `detect/data/` holds the watchlist reader, lexical terms and

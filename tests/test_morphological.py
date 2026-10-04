@@ -57,18 +57,17 @@ def test_numeric_exceptions_from_domains():
     assert numeric_exceptions(["office365.com", "n26.com"]) == frozenset({"365"})
 
 
-def test_evaluate_first_match_wins():
-    # matches M-01 (hyphens) and M-03 (labels); M-01 comes first
-    reason = evaluate_morphological(parse_domain("a-b-c-d.e.f.com"))
-    assert reason is not None
-    assert reason.family == Family.MORPHOLOGICAL
-    assert reason.rule == Rule.M_01
+def test_evaluate_returns_every_matching_rule():
+    # matches M-01 (hyphens) and M-03 (labels)
+    reasons = evaluate_morphological(parse_domain("a-b-c-d.e.f.com"))
+    assert [r.rule for r in reasons] == [Rule.M_01, Rule.M_03]
+    assert all(r.family == Family.MORPHOLOGICAL for r in reasons)
 
 
-def test_evaluate_no_match_returns_none():
-    assert evaluate_morphological(parse_domain("apple.com")) is None
+def test_evaluate_no_match_returns_empty():
+    assert evaluate_morphological(parse_domain("apple.com")) == []
 
 
 def test_evaluate_m04_exception_yields_no_reason():
     name = parse_domain("office365.com")
-    assert evaluate_morphological(name, numeric_exceptions(["office365.com"])) is None
+    assert evaluate_morphological(name, numeric_exceptions(["office365.com"])) == []

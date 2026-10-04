@@ -1,32 +1,32 @@
-"""Rule toggles and scoring points loaded from a YAML config file."""
+"""Detection rules (rule-id combinations) loaded from a YAML config file."""
 
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, field_validator
 
 from vigil.detect.registry import Rule
 
 DEFAULT_RULES_CONFIG_PATH = Path("data/rules.yml")
 
-
-class RuleSetting(BaseModel):
-    enabled: bool = True
-    points: int = Field(default=0, ge=0)
+Detection = frozenset[Rule]
 
 
 class RulesConfig(BaseModel):
-    rules: dict[str, RuleSetting]
+    detections: list[list[str]]
+
+    @field_validator("detections")
+    @classmethod
+    def _non_empty(cls, value: list[list[str]]) -> list[list[str]]:
+        if not value or any(not combo for combo in value):
+            raise ValueError("detections must be a non-empty list of non-empty rule lists")
+        return value
 
 
-def load_rule_points(path: Path | str = DEFAULT_RULES_CONFIG_PATH) -> dict[Rule, int]:
-    """Points of each enabled rule, or every rule at 0 points if the file is missing."""
+def load_detections(path: Path | str = DEFAULT_RULES_CONFIG_PATH) -> list[Detection]:
+    """Rule combinations to report, or every rule alone if the file is missing."""
     path = Path(path)
     if not path.exists():
-        return dict.fromkeys(Rule, 0)
+        return [frozenset({rule}) for rule in Rule]
     parsed = RulesConfig.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
-    return {
-        Rule(key.upper()): setting.points
-        for key, setting in parsed.rules.items()
-        if setting.enabled
-    }
+    return [frozenset(Rule(rule_id.upper()) for rule_id in combo) for combo in parsed.detections]

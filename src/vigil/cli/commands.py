@@ -14,7 +14,7 @@ from vigil.cli.stream import (
     _load_watched_brands,
     _run_stream,
 )
-from vigil.detect.data.rules_config import load_rule_points
+from vigil.detect.data.rules_config import load_detections
 from vigil.detect.data.tranco import load_tranco
 from vigil.detect.registry import Rule
 from vigil.ingest.base import Source
@@ -92,12 +92,6 @@ def watch(
     metrics_interval: float | None = typer.Option(
         None, "--metrics-interval", help="Seconds between metrics snapshots"
     ),
-    score_threshold: int | None = typer.Option(
-        None,
-        "--score-threshold",
-        min=0,
-        help="Minimum summed rule points (see --rules-config) to report a domain",
-    ),
 ) -> None:
     """Stream certificates from SOURCE and display them."""
     run_config = load_run_config(config)
@@ -116,9 +110,6 @@ def watch(
     metrics = metrics if metrics is not None else run_config.metrics
     metrics_interval = (
         metrics_interval if metrics_interval is not None else run_config.metrics_interval
-    )
-    score_threshold = (
-        score_threshold if score_threshold is not None else run_config.score_threshold
     )
 
     if not watchlist.exists():
@@ -142,14 +133,14 @@ def watch(
     watched: frozenset[str] = frozenset()
     terms: dict[Rule, frozenset[str]] | None = None
     allowlist: frozenset[str] = frozenset()
-    points: dict[Rule, int] | None = None
+    detections: list[frozenset[Rule]] | None = None
     tranco: frozenset[str] = frozenset()
     if detection:
         digit_exceptions = _load_digit_exceptions(watchlist)
         watched = _load_watched_brands(watchlist)
         terms = _load_terms()
         allowlist = _load_allowlist(watchlist)
-        points = load_rule_points(rules_config)
+        detections = load_detections(rules_config)
         if tranco_csv is not None:
             if not tranco_csv.exists():
                 logger.warning("tranco file not found: %s (continuing without it)", tranco_csv)
@@ -162,12 +153,11 @@ def watch(
         digit_exceptions,
         watched,
         terms,
-        points,
+        detections,
         metrics=metrics,
         metrics_interval=metrics_interval,
         allowlist=allowlist,
         output=output,
-        score_threshold=score_threshold,
         max_domain_length=max_domain_length,
         tranco=tranco,
     )

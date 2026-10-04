@@ -50,8 +50,8 @@ def evaluate_lexical(
     name: DomainName,
     terms: dict[Rule, frozenset[str]] | None = None,
     rules: frozenset[Rule] | None = None,
-) -> Reason | None:
-    """Return the first matching enabled lexical rule as a Reason, or None."""
+) -> list[Reason]:
+    """Return a Reason for every matching enabled lexical rule."""
     mfa_terms = (terms or {}).get(Rule.L_01, frozenset())
     document_terms = (terms or {}).get(Rule.L_02, frozenset())
     generic_terms = (terms or {}).get(Rule.L_04, frozenset())
@@ -61,9 +61,10 @@ def evaluate_lexical(
         Rule.L_03: lambda: www_as_domain_component(name),
         Rule.L_04: lambda: generic_term_present(name, generic_terms),
     }
+    reasons: list[Reason] = []
     for rule in LEXICAL_RULES:
         if rules is not None and rule not in rules:
             continue
         if predicates[rule]():
-            return Reason(family=Family.LEXICAL, rule=rule, points=0)
-    return None
+            reasons.append(Reason(family=Family.LEXICAL, rule=rule))
+    return reasons

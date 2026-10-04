@@ -60,30 +60,27 @@ def test_l04_no_match_without_term():
     assert not generic_term_present(name, GENERIC_TERMS)
 
 
-def test_evaluate_first_match_wins():
-    # "mfa" (L-01) and "login" (L-04) both present; L-01 comes first
+def test_evaluate_returns_every_matching_rule():
+    # "mfa" (L-01) and "login" (L-04) both present
     name = parse_domain("mfa-login-example.com")
     terms = {Rule.L_01: MFA_TERMS, Rule.L_04: GENERIC_TERMS}
-    reason = evaluate_lexical(name, terms)
-    assert reason is not None
-    assert reason.family == Family.LEXICAL
-    assert reason.rule == Rule.L_01
+    reasons = evaluate_lexical(name, terms)
+    assert [r.rule for r in reasons] == [Rule.L_01, Rule.L_04]
+    assert all(r.family == Family.LEXICAL for r in reasons)
 
 
-def test_evaluate_no_terms_returns_none():
+def test_evaluate_no_terms_returns_empty():
     name = parse_domain("mfa-example.com")
-    assert evaluate_lexical(name) is None
+    assert evaluate_lexical(name) == []
 
 
 def test_evaluate_structural_rule_needs_no_terms():
     name = parse_domain("www-example-login.com")
-    reason = evaluate_lexical(name)
-    assert reason is not None
-    assert reason.rule == Rule.L_03
+    assert [r.rule for r in evaluate_lexical(name)] == [Rule.L_03]
 
 
 def test_evaluate_respects_rules_filter():
     name = parse_domain("mfa-login-example.com")
     terms = {Rule.L_01: MFA_TERMS, Rule.L_04: GENERIC_TERMS}
-    assert evaluate_lexical(name, terms, rules=frozenset({Rule.L_04})).rule == Rule.L_04
-    assert evaluate_lexical(name, terms, rules=frozenset({Rule.L_02})) is None
+    assert evaluate_lexical(name, terms, rules=frozenset({Rule.L_04}))[0].rule == Rule.L_04
+    assert evaluate_lexical(name, terms, rules=frozenset({Rule.L_02})) == []

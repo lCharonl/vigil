@@ -5,7 +5,7 @@ from vigil.reporting.metrics import DetectionMetrics, _fmt_duration
 
 
 def _reason(rule: str) -> Reason:
-    return Reason(family="morphological", rule=rule, points=0)
+    return Reason(family="morphological", rule=rule)
 
 
 def test_record_accumulates():
@@ -30,7 +30,7 @@ def test_record_counts_multiple_reasons():
 
 def test_record_accumulates_by_family():
     m = DetectionMetrics()
-    m.record(1, 0.001, [("x.com", [Reason(family="referential", rule="R-03", points=0)])])
+    m.record(1, 0.001, [("x.com", [Reason(family="referential", rule="R-03")])])
     m.record(1, 0.001, [("y.com", [_reason("M-01"), _reason("M-03")])])
     assert m.by_family["referential"] == 1
     assert m.by_family["morphological"] == 2
@@ -46,7 +46,7 @@ def test_snapshot_contains_sections():
 
 def test_snapshot_by_family_sorted_most_common_first():
     m = DetectionMetrics()
-    m.record(1, 0.001, [("x.com", [Reason(family="referential", rule="R-03", points=0)])])
+    m.record(1, 0.001, [("x.com", [Reason(family="referential", rule="R-03")])])
     m.record(1, 0.001, [("y.com", [_reason("M-01")])])
     m.record(1, 0.001, [("z.com", [_reason("M-03")])])
     out = m.snapshot()
