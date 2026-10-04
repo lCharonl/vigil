@@ -113,7 +113,7 @@ def test_detection_with_all_rules_enabled(tmp_path):
 
 def test_rules_config_restricts_detections(tmp_path):
     fixture = _detection_fixture(tmp_path)
-    all_rules = ["R-01", "R-02", "R-03", "R-04", "L-01", "L-02", "L-03", "L-04", "M-01", "M-02", "M-03", "M-04"]
+    all_rules = ["R-01", "R-02", "R-03", "R-04", "L-01", "L-02", "L-03", "L-04", "M-01", "M-03", "M-04"]
     rules_config = _write_rules_config(tmp_path, {r: r == "M-03" for r in all_rules})
     result = runner.invoke(
         app,
@@ -171,6 +171,30 @@ def test_score_threshold_from_config_file(tmp_path):
     result = runner.invoke(app, ["watch", "--config", str(config_path)])
     assert result.exit_code == 0
     assert _records(result) == []
+
+
+def test_max_domain_length_flag_drops_long_domains(tmp_path):
+    fixture = tmp_path / "certs.jsonl"
+    _write_fixture(fixture, [["a" * 37 + ".com", "ok.com"], ["b" * 50 + ".com"]])
+    result = runner.invoke(
+        app,
+        ["watch", "--source", "fixtures", "--fixtures-path", str(fixture), *_NO_CONFIG],
+    )
+    assert result.exit_code == 0
+    assert [r["domains"] for r in _records(result)] == [["ok.com"]]
+
+
+def test_max_domain_length_from_config_file(tmp_path):
+    fixture = tmp_path / "certs.jsonl"
+    _write_fixture(fixture, [["abcdef.com", "ok.com"]])
+    config_path = tmp_path / "config.yml"
+    config_path.write_text(
+        f"source: fixtures\nfixtures_path: {fixture}\nmax_domain_length: 7\n",
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["watch", "--config", str(config_path)])
+    assert result.exit_code == 0
+    assert [r["domains"] for r in _records(result)] == [["ok.com"]]
 
 
 def test_rules_config_missing_file_enables_everything(tmp_path):

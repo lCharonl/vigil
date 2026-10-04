@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from vigil.ingest.filters import is_wildcard, strip_wildcards
+from vigil.ingest.filters import is_wildcard, strip_long_domains, strip_wildcards
 from vigil.models import CertEvent
 
 
@@ -39,3 +39,21 @@ def test_strip_wildcards_no_wildcard_is_unchanged():
     event = strip_wildcards(make_event(["a.com", "b.com"]))
     assert event is not None
     assert event.domains == ["a.com", "b.com"]
+
+
+def test_strip_long_domains_keeps_boundary_length():
+    domain = "a" * 36 + ".com"  # 40 chars
+    event = strip_long_domains(make_event([domain]), 40)
+    assert event is not None
+    assert event.domains == [domain]
+
+
+def test_strip_long_domains_drops_over_limit():
+    long = "a" * 37 + ".com"  # 41 chars
+    event = strip_long_domains(make_event([long, "ok.com"]), 40)
+    assert event is not None
+    assert event.domains == ["ok.com"]
+
+
+def test_strip_long_domains_all_long_returns_none():
+    assert strip_long_domains(make_event(["a" * 41 + ".com"]), 40) is None

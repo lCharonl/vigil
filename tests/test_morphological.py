@@ -6,7 +6,6 @@ from vigil.detect.families.morphological import (
     has_min_hyphens,
     has_min_labels,
     numeric_exceptions,
-    registrable_too_long,
 )
 from vigil.detect.registry import Family, Rule
 from vigil.detect.techniques.names import parse_domain
@@ -31,11 +30,6 @@ def test_parse_domain_psl_private_suffix():
 def test_m01_hyphen_threshold():
     assert not has_min_hyphens(parse_domain("a-b-c.com"))  # 2 hyphens
     assert has_min_hyphens(parse_domain("a-b-c-d.com"))  # 3 hyphens
-
-
-def test_m02_registrable_length():
-    assert not registrable_too_long(parse_domain(f"{'a' * 36}.com"))  # 40 chars
-    assert registrable_too_long(parse_domain(f"{'a' * 37}.com"))  # 41 chars
 
 
 def test_m03_label_count():
@@ -64,8 +58,8 @@ def test_numeric_exceptions_from_domains():
 
 
 def test_evaluate_first_match_wins():
-    # matches M-01 (hyphens) and M-02 (length); M-01 comes first
-    reason = evaluate_morphological(parse_domain("secure-microsoft-login-account.com"))
+    # matches M-01 (hyphens) and M-03 (labels); M-01 comes first
+    reason = evaluate_morphological(parse_domain("a-b-c-d.e.f.com"))
     assert reason is not None
     assert reason.family == Family.MORPHOLOGICAL
     assert reason.rule == Rule.M_01

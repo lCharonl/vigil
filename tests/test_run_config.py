@@ -2,7 +2,12 @@
 
 from pathlib import Path
 
-from vigil.cli.defaults import DEFAULT_FIXTURES_PATH, DEFAULT_METRICS_INTERVAL, DEFAULT_WATCHLIST_PATH
+from vigil.cli.defaults import (
+    DEFAULT_FIXTURES_PATH,
+    DEFAULT_MAX_DOMAIN_LENGTH,
+    DEFAULT_METRICS_INTERVAL,
+    DEFAULT_WATCHLIST_PATH,
+)
 from vigil.cli.run_config import RunConfig, load_run_config
 from vigil.detect.data.rules_config import DEFAULT_RULES_CONFIG_PATH
 from vigil.ingest.certstream import CERTSTREAM_URL
@@ -17,6 +22,7 @@ def test_missing_file_returns_hardcoded_defaults():
     assert config.watchlist == DEFAULT_WATCHLIST_PATH
     assert config.rules_config == DEFAULT_RULES_CONFIG_PATH
     assert config.skip_wildcards is True
+    assert config.max_domain_length == DEFAULT_MAX_DOMAIN_LENGTH
     assert config.detection is False
     assert config.metrics is False
     assert config.metrics_interval == DEFAULT_METRICS_INTERVAL
@@ -42,6 +48,7 @@ fixtures_path: fixtures.jsonl
 watchlist: my_watchlist.yml
 rules_config: my_rules.yml
 skip_wildcards: false
+max_domain_length: 63
 detection: true
 metrics: true
 metrics_interval: 3.0
@@ -56,6 +63,7 @@ metrics_interval: 3.0
         watchlist=Path("my_watchlist.yml"),
         rules_config=Path("my_rules.yml"),
         skip_wildcards=False,
+        max_domain_length=63,
         detection=True,
         metrics=True,
         metrics_interval=3.0,
