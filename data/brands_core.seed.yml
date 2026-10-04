@@ -218,7 +218,6 @@ it_services:
     zoom: [zoom.us, zoom.com]
     slack: [slack.com]
     github: [github.com]
-    gitlab: [gitlab.com]
     atlassian: [atlassian.com, atlassian.net]
     cloudflare: [cloudflare.com]
     oracle: [oracle.com]

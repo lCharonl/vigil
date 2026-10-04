@@ -4,15 +4,14 @@
 rules:
   R-01: {enabled: true, points: 50}
   R-02: {enabled: true, points: 50}
-  R-03: {enabled: true, points: 50}
+  R-03: {enabled: false, points: 50}
   R-04: {enabled: true, points: 50}
   L-01: {enabled: true, points: 25}
   L-02: {enabled: true, points: 20}
   L-03: {enabled: true, points: 20}
   L-04: {enabled: true, points: 10}
   M-01: {enabled: true, points: 5}
-  M-02: {enabled: true, points: 5}
-  M-03: {enabled: true, points: 5}
+  M-03: {enabled: false, points: 5}
   M-04: {enabled: true, points: 5}
   E-01: {enabled: true, points: 50}
   E-02: {enabled: true, points: 30}

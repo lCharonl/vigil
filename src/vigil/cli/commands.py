@@ -67,6 +67,12 @@ def watch(
         "--skip-wildcards/--no-skip-wildcards",
         help="Drop wildcard SANs from ingested certificates",
     ),
+    max_domain_length: int | None = typer.Option(
+        None,
+        "--max-domain-length",
+        min=1,
+        help="Drop SANs longer than this many characters",
+    ),
     detection: bool | None = typer.Option(
         None,
         "--detection/--no-detection",
@@ -96,8 +102,11 @@ def watch(
     fixtures_path = fixtures_path if fixtures_path is not None else run_config.fixtures_path
     output = output if output is not None else run_config.output
     skip_wildcards = skip_wildcards if skip_wildcards is not None else run_config.skip_wildcards
+    max_domain_length = (
+        max_domain_length if max_domain_length is not None else run_config.max_domain_length
+    )
     detection = detection if detection is not None else run_config.detection
-    metrics = metrics if metrics is not None else run_config.metrics
+    metrics =metrics if metrics is not None else run_config.metrics
     metrics_interval = (
         metrics_interval if metrics_interval is not None else run_config.metrics_interval
     )
@@ -147,6 +156,7 @@ def watch(
         allowlist=allowlist,
         output=output,
         score_threshold=score_threshold,
+        max_domain_length=max_domain_length,
     )
 
 

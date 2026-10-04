@@ -1,4 +1,4 @@
-"""Morphological rules (M-01..M-04): weak, pure structural predicates."""
+"""Morphological rules (M-01, M-03, M-04): weak, pure structural predicates."""
 
 import re
 from collections.abc import Iterable
@@ -14,13 +14,6 @@ _DIGIT_RUN = re.compile(r"\d+")
 def has_min_hyphens(name: DomainName, minimum: int = thresholds.MIN_HYPHENS) -> bool:
     """M-01: three or more hyphens in the hostname."""
     return name.fqdn.count("-") >= minimum
-
-
-def registrable_too_long(
-    name: DomainName, maximum: int = thresholds.MAX_REGISTRABLE_LENGTH
-) -> bool:
-    """M-02: registrable domain longer than the limit."""
-    return len(name.registrable) > maximum
 
 
 def has_min_labels(name: DomainName, minimum: int = thresholds.MIN_LABELS) -> bool:
@@ -49,7 +42,7 @@ def numeric_exceptions(domains: Iterable[str]) -> frozenset[str]:
 
 
 # evaluation order = registry order (most informative first)
-MORPHOLOGICAL_RULES: tuple[Rule, ...] = (Rule.M_01, Rule.M_02, Rule.M_03, Rule.M_04)
+MORPHOLOGICAL_RULES: tuple[Rule, ...] = (Rule.M_01, Rule.M_03, Rule.M_04)
 
 
 def evaluate_morphological(
@@ -60,7 +53,6 @@ def evaluate_morphological(
     """Return the first matching enabled morphological rule as a Reason, or None."""
     predicates = {
         Rule.M_01: lambda: has_min_hyphens(name),
-        Rule.M_02: lambda: registrable_too_long(name),
         Rule.M_03: lambda: has_min_labels(name),
         Rule.M_04: lambda: has_digit_run(name, exceptions=digit_exceptions),
     }

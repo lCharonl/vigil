@@ -17,9 +17,6 @@ LEVENSHTEIN_SHORT_BRAND_MAX_DISTANCE: int = 1
 # M-01: minimum hyphen count
 MIN_HYPHENS: int = 3
 
-# M-02: registrable domain length considered too long (chars, exclusive)
-MAX_REGISTRABLE_LENGTH: int = 40
-
 # M-03: minimum label count in the hostname
 MIN_LABELS: int = 4
 

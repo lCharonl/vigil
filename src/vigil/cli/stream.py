@@ -18,7 +18,7 @@ from vigil.detect.families.morphological import numeric_exceptions
 from vigil.detect.pipeline import detect_event
 from vigil.detect.registry import Rule
 from vigil.ingest.base import Source
-from vigil.ingest.filters import strip_wildcards
+from vigil.ingest.filters import strip_long_domains, strip_wildcards
 from vigil.output.jsonl import JSONLWriter
 from vigil.reporting.metrics import DetectionMetrics
 
@@ -63,6 +63,7 @@ def _run_stream(
     allowlist: frozenset[str] = frozenset(),
     output: Path | None = None,
     score_threshold: int = 0,
+    max_domain_length: int | None = None,
 ) -> None:
     """Drive the ingestion loop, writing certs or detections as JSONL."""
 
@@ -95,6 +96,11 @@ def _run_stream(
             async for cert in src.stream():
                 if skip_wildcards:
                     filtered = strip_wildcards(cert)
+                    if filtered is None:
+                        continue
+                    cert = filtered
+                if max_domain_length is not None:
+                    filtered = strip_long_domains(cert, max_domain_length)
                     if filtered is None:
                         continue
                     cert = filtered

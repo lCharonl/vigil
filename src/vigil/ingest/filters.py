@@ -16,3 +16,13 @@ def strip_wildcards(event: CertEvent) -> CertEvent | None:
     if len(kept) == len(event.domains):
         return event
     return event.model_copy(update={"domains": kept})
+
+
+def strip_long_domains(event: CertEvent, max_length: int) -> CertEvent | None:
+    """Drop SANs longer than max_length; return None if no domain remains."""
+    kept = [d for d in event.domains if len(d) <= max_length]
+    if not kept:
+        return None
+    if len(kept) == len(event.domains):
+        return event
+    return event.model_copy(update={"domains": kept})

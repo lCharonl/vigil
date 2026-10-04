@@ -22,7 +22,6 @@ class Rule(StrEnum):
     E_01 = "E-01"
     E_02 = "E-02"
     M_01 = "M-01"
-    M_02 = "M-02"
     M_03 = "M-03"
     M_04 = "M-04"
 
@@ -40,7 +39,6 @@ RULE_FAMILY: dict[Rule, Family] = {
     Rule.E_01: Family.ENCODING,
     Rule.E_02: Family.ENCODING,
     Rule.M_01: Family.MORPHOLOGICAL,
-    Rule.M_02: Family.MORPHOLOGICAL,
     Rule.M_03: Family.MORPHOLOGICAL,
     Rule.M_04: Family.MORPHOLOGICAL,
 }

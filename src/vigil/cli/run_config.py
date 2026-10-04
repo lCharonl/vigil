@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from vigil.cli.defaults import (
     DEFAULT_FIXTURES_PATH,
+    DEFAULT_MAX_DOMAIN_LENGTH,
     DEFAULT_METRICS_INTERVAL,
     DEFAULT_WATCHLIST_PATH,
 )
@@ -24,6 +25,7 @@ class RunConfig(BaseModel):
     rules_config: Path = DEFAULT_RULES_CONFIG_PATH
     output: Path | None = None
     skip_wildcards: bool = True
+    max_domain_length: int | None = Field(default=DEFAULT_MAX_DOMAIN_LENGTH, ge=1)
     detection: bool = False
     metrics: bool = False
     metrics_interval: float = DEFAULT_METRICS_INTERVAL

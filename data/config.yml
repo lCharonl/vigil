@@ -5,7 +5,8 @@ fixtures_path: tests/fixtures/certs.jsonl
 watchlist: data/watchlist.yml
 rules_config: data/rules.yml
 skip_wildcards: true
+max_domain_length: 40
 detection: true
 metrics: false
 metrics_interval: 2.0
-score_threshold: 50         # min summed rule points (data/rules.yml) to report a domain
+score_threshold: 40
