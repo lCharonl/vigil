@@ -143,7 +143,6 @@ these two live in different families and are never conflated.
 | ID | Rule | Example |
 |---|---|---|
 | M-01 | Three or more hyphens | `secure-microsoft-login-account.com` |
-| M-02 | Registrable domain longer than 40 characters | `microsoft-account-security-verification-center.com` |
 | M-03 | Four or more labels in the hostname | `login.microsoft.secure.foo.com` |
 | M-04 | Three or more consecutive digits | `office365-auth-92834.net` |
 
