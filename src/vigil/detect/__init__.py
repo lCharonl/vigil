@@ -1,10 +1,9 @@
-"""Detection layer: scores CertEvent domains against the watchlist.
+"""Detection layer: evaluates CertEvent domains against the watchlist.
 
 Layout:
 - `pipeline` orchestrates the enabled families over a CertEvent
-- `registry` holds the Rule/Family catalogue; `scoring` builds the Finding (stub)
-- `families/` has one module per family (morphological, referential implemented, rest stubs)
-- `techniques/` has pure string helpers: `names` (PSL split), plus `permutations`
-  and `homoglyphs` (both stubs)
-- `data/` holds the watchlist, lexical terms and numeric thresholds
+- `registry` holds the Rule/Family catalogue
+- `families/` has one module per family (referential, lexical, encoding, morphological)
+- `techniques/` has pure string helpers (names, levenshtein, permutations, homoglyphs)
+- `data/` holds the watchlist, lexical terms, rule toggles and numeric thresholds
 """

@@ -2,15 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vigil.example/schemas/finding.v1.json",
   "title": "Finding",
-  "description": "A suspected brand-impersonation match produced by Vigil's detection layer. This is the stable, language-independent contract for downstream consumers; it is committed as a static file rather than generated at runtime.",
+  "description": "Target per-certificate contract for Vigil findings (matches vigil.models.Finding). Not emitted by `vigil watch` yet; see docs/architecture.md, \"Output contract\", for the current JSONL.",
   "type": "object",
   "required": [
     "schema_version",
     "detected_at",
     "cert",
-    "matched_watch_target",
-    "score",
-    "reasons"
+    "verdicts",
+    "score"
   ],
   "additionalProperties": false,
   "properties": {
@@ -25,21 +24,23 @@
     "cert": {
       "$ref": "#/$defs/CertEvent"
     },
-    "matched_watch_target": {
-      "type": "string",
-      "description": "The watchlist entry this finding matched against."
-    },
     "score": {
       "type": "number",
       "minimum": 0,
       "maximum": 1
     },
-    "reasons": {
+    "verdicts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DomainVerdict"
+      }
+    },
+    "skipped_domains": {
       "type": "array",
       "items": {
         "type": "string"
       },
-      "description": "Human-readable explanations backing the score."
+      "default": []
     }
   },
   "$defs": {
@@ -65,10 +66,16 @@
           "type": "string"
         },
         "issuer_country": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "issuer_organisation": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "issuer_common_name": {
           "type": "string"
@@ -92,10 +99,64 @@
           "type": "string"
         },
         "cert_index": {
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "is_precert": {
           "type": "boolean"
+        }
+      }
+    },
+    "Reason": {
+      "type": "object",
+      "required": [
+        "family",
+        "rule",
+        "points"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "family": {
+          "type": "string"
+        },
+        "rule": {
+          "type": "string"
+        },
+        "points": {
+          "type": "integer"
+        }
+      }
+    },
+    "DomainVerdict": {
+      "type": "object",
+      "required": [
+        "domain",
+        "score",
+        "reasons"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "type": "string"
+        },
+        "matched_watch_target": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Reason"
+          }
         }
       }
     }

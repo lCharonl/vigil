@@ -40,8 +40,7 @@ PyYAML, already required).
 - **`extended` is not threat-intel.** Token classification on the domain name is a
   heuristic: "popular in a sector" is not "actually impersonated". The high-fidelity
   signal is the `core` tier.
-- **False-positive cost.** Once `vigil.detect` is implemented, every brand widens the
-  generated permutation space. A watchlist near 10,000 brands sharply increases the
+- **False-positive cost.** Every brand widens the detection surface. A watchlist near 10,000 brands sharply increases the
   candidate volume and thus the false-positive risk. The `tier` field lets detection
   weight entries, or restrict to `core`.
 - **Imperfect regions.** The region of an `extended` entry is inferred from the

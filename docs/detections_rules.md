@@ -17,8 +17,11 @@ must not diverge from it. If a rule changes, change this file first.
 **Every heuristic evaluates a single domain, never a certificate.**
 
 A certificate carries N SANs. Each is evaluated independently, producing a
-`DomainVerdict`. A certificate with at least one matching domain yields exactly
-one `Finding` containing all its verdicts.
+`DomainVerdict`. A certificate with at least one matching domain should yield
+exactly one `Finding` containing all its verdicts.
+
+> Current state: `Finding` is not produced yet. `vigil watch` emits one JSONL
+> line per matching domain (see `docs/architecture.md`, "Output contract").
 
 Grouping by certificate is deliberate: "these three domains share a certificate"
 is itself intelligence and a pivot for investigation.

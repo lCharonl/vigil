@@ -27,20 +27,37 @@ vigil watch --source fixtures --detection
 Streams live CertStream by default (`--source certstream`). `fixtures`
 replays a local JSONL file instead — good for testing.
 
-Results (detections, or raw certs without `--detection`) are written as
+Settings resolve in this order: CLI flag, then `data/config.yml`, then built-in
+defaults. Pass `--config FILE` to use another run config.
+
+Results (detections, or raw certs with `--no-detection`) are written as
 JSON Lines, one object per line, flushed immediately. By default they go to
 stdout; pass `--output FILE` to append them to a file instead — handy for a
-separate script to tail the file live (see `scripts/tail_results.py`).
+separate script to tail the file live (see `scripts/tail_results.py`). The line
+format is described in `docs/architecture.md` ("Output contract").
 
 Useful flags:
 
-- `--detection` — run detection rules, emit only matches.
+- `--config FILE` — run config YAML (default `data/config.yml`).
+- `--source certstream|fixtures` — feed to read.
+- `--certstream-url URL` — websocket URL for `certstream`.
+- `--fixtures-path FILE` — JSONL file replayed by `fixtures`.
+- `--detection/--no-detection` — run detection rules and emit only matches, or emit raw certs.
 - `--rules-config data/rules.yml` — enable/disable individual rules.
 - `--watchlist data/watchlist.yml` — brands to monitor.
+- `--skip-wildcards/--no-skip-wildcards` — drop wildcard SANs.
 - `--output FILE` — append results as JSONL to FILE instead of stdout.
-- `--metrics` — print throughput stats to stderr instead of individual results.
+- `--metrics` — print throughput stats to stderr instead of individual results (needs detection).
+- `--metrics-interval SECONDS` — delay between metrics snapshots.
 
 Run `vigil watch --help` for the full list.
+
+## Scripts
+
+- `scripts/tail_results.py` — live, colorized tail of a results JSONL file.
+- `scripts/build_watchlist.py` — regenerate `data/watchlist.yml` (see `docs/watchlist.md`).
+- `scripts/detection_kpis.py` — detection throughput/timing over a time window.
+- `scripts/certstream_kpis.py` — CertStream throughput at 1/5/10-minute checkpoints.
 
 ## Docker
 
@@ -57,7 +74,7 @@ the host, at `ws://host.docker.internal:8080/` (`extra_hosts` in
 Docker too, not just Docker Desktop). Start your certstream-server-rust
 instance on the host first, then bring the container up.
 
-Results land in `./data/output/results.jsonl` on the host, one JSON
+The image's own default command (without compose) replays the fixtures. Results land in `./data/output/results.jsonl` on the host, one JSON
 object per line, flushed as soon as it's written. Watch them live,
 colorized, from the host:
 
